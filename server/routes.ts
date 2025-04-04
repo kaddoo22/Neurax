@@ -191,10 +191,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Twitter OAuth callback
   app.get("/api/auth/twitter/callback", async (req: Request, res: Response) => {
     try {
+      console.log("Twitter callback received:", req.query);
+      console.log("Session data:", { userId: req.session.userId, oauthState: req.session.oauthState });
+      
       const { code, state } = req.query;
       const storedState = req.session.oauthState;
       
       if (!code || !state || state !== storedState) {
+        console.log("Invalid OAuth state. Received:", state, "Stored:", storedState);
         return res.status(400).json({ message: "Invalid OAuth state" });
       }
       
@@ -220,8 +224,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           twitterConnected: true
         });
         
-        // Redirect to frontend
-        return res.redirect("/dashboard");
+        console.log("Updated existing user with Twitter credentials, userId:", userId);
+        
+        // Assicurati che la sessione sia salvata prima del redirect
+        req.session.save((err) => {
+          if (err) {
+            console.error("Error saving session for existing user:", err);
+            return res.redirect("/settings?error=session_error");
+          }
+          
+          console.log("Session saved successfully for existing user, redirecting to dashboard");
+          // Redirect to frontend
+          return res.redirect("/dashboard");
+        });
       } 
       
       // Login/register via Twitter case:
@@ -258,10 +273,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Set user session
       req.session.userId = user.id;
       
-      // Redirect to dashboard
-      res.redirect("/dashboard");
-    } catch (error) {
+      console.log("User session set, userId:", user.id);
+      
+      // Assicurati che la sessione sia salvata prima del redirect
+      req.session.save((err) => {
+        if (err) {
+          console.error("Error saving session:", err);
+          return res.redirect("/login?error=session_error");
+        }
+        
+        console.log("Session saved successfully, redirecting to dashboard");
+        // Redirect to dashboard
+        res.redirect("/dashboard");
+      });
+    } catch (error: any) {
       console.error("Twitter callback error:", error);
+      if (error.stack) {
+        console.error(error.stack);
+      }
       res.redirect("/login?error=twitter_auth_failed");
     }
   });
