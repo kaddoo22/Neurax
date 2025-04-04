@@ -1,0 +1,81 @@
+🧠 NeuraX – Progetto IA Social Media Manager Autonomo
+🔥 Obiettivo
+NeuraX è un social media manager basato su IA completamente autonomo, focalizzato sulla crescita e gestione di un account X (Twitter). L’IA sarà capace di:
+
+Pubblicare contenuti autonomamente.
+
+Rispondere ai commenti.
+
+Generare immagini e contenuti coerenti con il brand.
+
+Coinvolgere l’utente nella pubblicazione manuale (con AI assistant).
+
+Fare chiamate di trading crypto giornaliere e pubblicarne i risultati.
+
+⚙️ Funzionalità principali richieste (reali e funzionanti, NO DEMO):
+Login con Supabase:
+Autenticazione sicura e database utente.
+
+Collegamento reale con Twitter/X:
+
+Utilizzo delle API ufficiali Twitter (v2).
+
+Gestione autorizzazioni (OAuth2).
+
+Possibilità per l’IA di pubblicare contenuti e leggere feed.
+
+Integrazione per mostrare i post generati nel sito.
+
+Dashboard utente:
+
+Sezione "Pubblica manualmente" (con AI assistant + generatore immagini).
+
+Sezione "IA autonoma" (post pianificati e generati).
+
+Visualizzazione delle performance: follower, engagement, post recenti.
+
+AI Autonoma (via Hugging Face + OpenRouter):
+
+Creazione contenuti testuali (hook, meme, provocazioni in stile crypto Twitter).
+
+Generazione immagini (IA con volto futuristico).
+
+Personalità dell’IA: imprenditore spietato ma simpatico, il migliore trader del mondo.
+
+Crypto trading AI:
+
+Integrazione con API CoinGecko o Binance.
+
+Ogni giorno l’IA lancia 10 chiamate di trading su varie crypto.
+
+Dashboard con performance, percentuali di successo, ROI.
+
+Backend funzionante (Railway):
+
+API ben strutturate.
+
+Protezione rate limit, firewall, caching intelligente, auto-recovery.
+
+Design Cyber-Futuristico (Vercel + Tailwind):
+
+UI con effetti Matrix, stile hacker, animazioni fluide.
+
+Logo incluso (vedi sotto).
+
+Responsive, dark mode default.
+
+Sicurezza e Scalabilità:
+
+Anonimizzazione dei dati.
+
+Database ridondanti.
+
+WebSockets per aggiornamenti in tempo reale.
+
+Auto-salvataggio dei contenuti.
+
+Test completo e QA:
+
+Tutte le funzionalità devono essere testate e funzionanti.
+
+Evitare demo o placeholder inutili: fornirò file .env con chiavi e credenziali reali per costruire un ambiente completo fin da subito.
