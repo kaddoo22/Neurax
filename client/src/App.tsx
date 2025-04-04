@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@/types/index";
@@ -17,6 +17,7 @@ import NotFound from "@/pages/not-found";
 // Components
 import Sidebar from "@/components/layout/Sidebar";
 import MatrixBackground from "@/components/layout/MatrixBackground";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/use-auth";
 import { useWebSocket } from "@/hooks/use-websocket";
 
@@ -102,14 +103,71 @@ function App() {
       <main className={`${showSidebar ? 'lg:ml-64' : ''} min-h-screen ${showSidebar ? 'pt-16 lg:pt-0' : ''} pb-16 transition-all duration-300`}>
         <Switch>
           <Route path="/login" component={Login} />
-          <Route path="/" component={Dashboard} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/ai-autonomous" component={AIAutonomous} />
-          <Route path="/manual-post" component={ManualPost} />
-          <Route path="/crypto-trading" component={CryptoTrading} />
-          <Route path="/analytics" component={Analytics} />
-          <Route path="/settings" component={Settings} />
-          <Route component={NotFound} />
+          
+          {/* Protected Routes */}
+          <Route path="/">
+            {() => (
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            )}
+          </Route>
+          
+          <Route path="/dashboard">
+            {() => (
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            )}
+          </Route>
+          
+          <Route path="/ai-autonomous">
+            {() => (
+              <ProtectedRoute>
+                <AIAutonomous />
+              </ProtectedRoute>
+            )}
+          </Route>
+          
+          <Route path="/manual-post">
+            {() => (
+              <ProtectedRoute>
+                <ManualPost />
+              </ProtectedRoute>
+            )}
+          </Route>
+          
+          <Route path="/crypto-trading">
+            {() => (
+              <ProtectedRoute>
+                <CryptoTrading />
+              </ProtectedRoute>
+            )}
+          </Route>
+          
+          <Route path="/analytics">
+            {() => (
+              <ProtectedRoute>
+                <Analytics />
+              </ProtectedRoute>
+            )}
+          </Route>
+          
+          <Route path="/settings">
+            {() => (
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            )}
+          </Route>
+          
+          <Route>
+            {() => (
+              <ProtectedRoute>
+                <NotFound />
+              </ProtectedRoute>
+            )}
+          </Route>
         </Switch>
       </main>
       

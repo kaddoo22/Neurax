@@ -27,6 +27,9 @@ export function useAuth() {
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes,
+    // Handle unauthorized error in queryClient
+    refetchOnWindowFocus: true, // Refresh on window focus
+    refetchOnReconnect: true,  // Refresh on reconnect
     enabled: true, // Always enable but handle redirection separately
   });
   
@@ -37,22 +40,8 @@ export function useAuth() {
     }
   }, [isLoadingUser]);
 
-  // Get current path
-  const [currentPath] = useLocation();
-  const isLoginPage = currentPath === "/login";
-  
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    // Only redirect if we're not already on the login page and the query has completed
-    if (!isLoadingUser && !user && !isLoginPage) {
-      console.log("User not authenticated, redirecting to login");
-      setLocation("/login");
-    } else if (user && isLoginPage) {
-      // If user is authenticated and on login page, redirect to dashboard
-      console.log("User already authenticated, redirecting to dashboard");
-      setLocation("/dashboard");
-    }
-  }, [isLoadingUser, user, setLocation, isLoginPage]);
+  // We don't need the redirect logic here anymore since it's handled by the ProtectedRoute component
+  // and the login page itself. This avoids circular redirects when multiple redirects happen simultaneously.
 
   // Login mutation
   const loginMutation = useMutation({

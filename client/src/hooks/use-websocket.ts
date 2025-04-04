@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { WebSocketMessage } from "@/types";
 import { Post, TradingCall, Metrics } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 // Define message types for better type safety
 type ContentUpdateMessage = WebSocketMessage & {
@@ -59,6 +60,7 @@ type ServerMessage =
   | UnsubscribedMessage;
 
 export function useWebSocket() {
+  const { user, isAuthenticated } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<ServerMessage | null>(null);
   const [lastError, setLastError] = useState<Event | null>(null);
@@ -87,7 +89,9 @@ export function useWebSocket() {
 
     // Create the WebSocket URL with proper protocol based on page protocol
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws?clientId=${clientIdRef.current}`;
+    // Include user ID if authenticated
+    const userId = user ? `&userId=${user.id}` : '';
+    const wsUrl = `${protocol}//${window.location.host}/ws?clientId=${clientIdRef.current}${userId}`;
     
     console.log(`Connecting to WebSocket at ${wsUrl}`);
     const socket = new WebSocket(wsUrl);
@@ -190,11 +194,20 @@ export function useWebSocket() {
       setLastError(error);
       // Let onclose handle reconnection
     };
-  }, []);
+  }, [user]);
 
-  // Connect when component mounts
+  // Connect when component mounts or when user auth state changes
   useEffect(() => {
-    connect();
+    // Only connect if user is authenticated
+    if (isAuthenticated && user) {
+      console.log("User is authenticated, connecting to WebSocket");
+      connect();
+    } else if (socketRef.current) {
+      // Close the connection if user is not authenticated
+      console.log("User is not authenticated, closing WebSocket connection");
+      socketRef.current.close();
+      setIsConnected(false);
+    }
     
     // Clean up when component unmounts
     return () => {
@@ -206,7 +219,7 @@ export function useWebSocket() {
         window.clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [connect]);
+  }, [connect, isAuthenticated, user]);
 
   // Send a message to the WebSocket server
   const sendMessage = useCallback((message: any): boolean => {

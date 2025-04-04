@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useLocation } from "wouter";
 import {
   Form,
   FormControl,
@@ -13,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { CyberButton } from "@/components/ui/cyber-button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
 const loginSchema = z.object({
@@ -29,8 +31,18 @@ const registerSchema = loginSchema.extend({
 });
 
 const Login = () => {
-  const { login, register, isLoggingIn, isRegistering } = useAuth();
+  const { login, register, isLoggingIn, isRegistering, user } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
+  // Redirect to dashboard if already logged in
+  useEffect(() => {
+    if (user) {
+      console.log("User already logged in, redirecting to dashboard");
+      setLocation("/dashboard");
+    }
+  }, [user, setLocation]);
 
   // Login form
   const loginForm = useForm<z.infer<typeof loginSchema>>({
