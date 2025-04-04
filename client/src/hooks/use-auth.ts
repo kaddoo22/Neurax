@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { User } from "@/types";
+import { User } from "@/types/index";
 
 interface LoginCredentials {
   username: string;
@@ -25,10 +25,16 @@ export function useAuth() {
   const { data: user, error, isLoading: isLoadingUser, isError } = useQuery<User>({
     queryKey: ["/api/auth/user"],
     retry: false,
-    onSettled: () => {
-      setIsLoading(false);
-    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
+  
+  // Set loading state when user query settles
+  useEffect(() => {
+    if (!isLoadingUser) {
+      setIsLoading(false);
+    }
+  }, [isLoadingUser]);
 
   // Redirect to login if not authenticated
   useEffect(() => {

@@ -99,13 +99,14 @@
   }
   
   .cyber-card {
-    @apply bg-[rgba(18,18,18,0.7)] backdrop-blur-sm border border-neonGreen/20 shadow-lg;
+    @apply bg-[rgba(18,18,18,0.7)] backdrop-blur-sm border shadow-lg;
+    border-color: rgba(57, 255, 20, 0.2);
     transition: all 0.3s ease;
   }
   
   .cyber-card:hover {
     box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
-    @apply border-neonGreen/40;
+    border-color: rgba(57, 255, 20, 0.4);
   }
 }
 

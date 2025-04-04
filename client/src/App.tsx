@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
+import { User } from "@/types/index";
 
 // Pages
 import Login from "@/pages/login";
@@ -28,12 +29,11 @@ function App() {
 
   // Handle WebSocket messages for notifications
   useEffect(() => {
-    if (lastMessage) {
+    if (lastMessage && user) {
+      // Only process messages if user is logged in
       try {
-        const data = JSON.parse(lastMessage);
-        
-        // Handle different message types
-        switch (data.type) {
+        // lastMessage is already an object, no need to parse
+        switch (lastMessage.type) {
           case 'content_update':
             toast({
               title: 'New Content',
@@ -44,9 +44,9 @@ function App() {
           case 'trading_update':
             toast({
               title: 'Trading Call Update',
-              description: data.tradingCall?.status === 'CLOSED' 
-                ? `Trading call for ${data.tradingCall?.asset} has been closed`
-                : `New trading call generated for ${data.tradingCall?.asset}`,
+              description: lastMessage.tradingCall?.status === 'CLOSED' 
+                ? `Trading call for ${lastMessage.tradingCall?.asset} has been closed`
+                : `New trading call generated for ${lastMessage.tradingCall?.asset}`,
             });
             break;
             
@@ -58,10 +58,10 @@ function App() {
             break;
         }
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        console.error('Error processing WebSocket message:', error);
       }
     }
-  }, [lastMessage, toast]);
+  }, [lastMessage, toast, user]);
 
   // Determine if we should show the sidebar (not on login page)
   const showSidebar = location !== '/login' && user;
@@ -79,7 +79,7 @@ function App() {
           open={sidebarOpen} 
           setOpen={setSidebarOpen} 
           onLogout={logout}
-          username={user?.username || ''}
+          username={user ? user.username : ''}
         />
       )}
       

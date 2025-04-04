@@ -109,11 +109,35 @@ export function useWebSocket() {
       
       try {
         const data = JSON.parse(event.data) as ServerMessage;
+        
+        // Update the last message state
         setLastMessage(data);
         
         // Handle connection confirmation
         if (data.type === "connection" && data.status === "connected") {
+          console.log("Connection confirmed, client ID:", data.clientId);
           setClientId(data.clientId);
+          
+          // Auto-subscribe to general topics
+          setTimeout(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ 
+                type: "subscribe", 
+                topic: "content",
+                timestamp: Date.now() 
+              }));
+              socket.send(JSON.stringify({ 
+                type: "subscribe", 
+                topic: "trading",
+                timestamp: Date.now() 
+              }));
+              socket.send(JSON.stringify({ 
+                type: "subscribe", 
+                topic: "metrics",
+                timestamp: Date.now() 
+              }));
+            }
+          }, 500);
         }
         
         // Respond to pong with a ping to keep connection alive
