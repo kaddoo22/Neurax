@@ -21,6 +21,12 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   email: true,
+  twitterId: true,
+  twitterUsername: true, 
+  accessToken: true,
+  refreshToken: true,
+  tokenExpiry: true,
+  twitterConnected: true,
 });
 
 // Twitter posts table

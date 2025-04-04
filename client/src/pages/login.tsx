@@ -16,6 +16,8 @@ import { CyberButton } from "@/components/ui/cyber-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { Twitter } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 const loginSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -31,10 +33,11 @@ const registerSchema = loginSchema.extend({
 });
 
 const Login = () => {
-  const { login, register, isLoggingIn, isRegistering, user } = useAuth();
+  const { login, register, isLoggingIn, isRegistering, user, loginWithTwitter } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [isTwitterLoading, setIsTwitterLoading] = useState(false);
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
@@ -71,6 +74,22 @@ const Login = () => {
   const onRegisterSubmit = (values: z.infer<typeof registerSchema>) => {
     const { confirmPassword, ...registerData } = values;
     register(registerData);
+  };
+  
+  const handleTwitterLogin = async () => {
+    setIsTwitterLoading(true);
+    try {
+      await loginWithTwitter();
+    } catch (error) {
+      console.error("Twitter login error:", error);
+      toast({
+        title: "Twitter Login Failed",
+        description: "Could not connect to Twitter. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTwitterLoading(false);
+    }
   };
 
   return (
@@ -118,143 +137,185 @@ const Login = () => {
             </div>
 
             {mode === "login" ? (
-              <Form {...loginForm}>
-                <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-                  <FormField
-                    control={loginForm.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-matrixGreen">Username</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                            placeholder="Enter your username"
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
+              <div>
+                <Form {...loginForm}>
+                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                    <FormField
+                      control={loginForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-matrixGreen">Username</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
+                              placeholder="Enter your username"
+                            />
+                          </FormControl>
+                          <FormMessage className="text-red-400" />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={loginForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-matrixGreen">Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="password"
-                            className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                            placeholder="Enter your password"
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={loginForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-matrixGreen">Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="password"
+                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
+                              placeholder="Enter your password"
+                            />
+                          </FormControl>
+                          <FormMessage className="text-red-400" />
+                        </FormItem>
+                      )}
+                    />
 
+                    <CyberButton
+                      type="submit"
+                      className="w-full mt-2"
+                      disabled={isLoggingIn}
+                      iconLeft={<i className="fas fa-shield-alt"></i>}
+                    >
+                      {isLoggingIn ? "AUTHENTICATING..." : "ACCESS SYSTEM"}
+                    </CyberButton>
+                  </form>
+                </Form>
+
+                <div className="my-4">
+                  <div className="relative flex items-center py-2">
+                    <div className="flex-grow border-t border-neonGreen/20"></div>
+                    <span className="flex-shrink mx-3 text-xs text-matrixGreen">OR</span>
+                    <div className="flex-grow border-t border-neonGreen/20"></div>
+                  </div>
+                  
                   <CyberButton
-                    type="submit"
-                    className="w-full mt-2"
-                    disabled={isLoggingIn}
-                    iconLeft={<i className="fas fa-shield-alt"></i>}
+                    type="button"
+                    variant="secondary"
+                    className="w-full"
+                    onClick={handleTwitterLogin}
+                    disabled={isTwitterLoading}
+                    iconLeft={<Twitter className="h-4 w-4 text-cyberBlue" />}
                   >
-                    {isLoggingIn ? "AUTHENTICATING..." : "ACCESS SYSTEM"}
+                    {isTwitterLoading ? "CONNECTING..." : "LOGIN WITH TWITTER"}
                   </CyberButton>
-                </form>
-              </Form>
+                </div>
+              </div>
             ) : (
-              <Form {...registerForm}>
-                <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
-                  <FormField
-                    control={registerForm.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-matrixGreen">Username</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                            placeholder="Choose a username"
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
+              <div>
+                <Form {...registerForm}>
+                  <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                    <FormField
+                      control={registerForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-matrixGreen">Username</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
+                              placeholder="Choose a username"
+                            />
+                          </FormControl>
+                          <FormMessage className="text-red-400" />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-matrixGreen">Email</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="email"
-                            className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                            placeholder="Enter your email"
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={registerForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-matrixGreen">Email</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="email"
+                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
+                              placeholder="Enter your email"
+                            />
+                          </FormControl>
+                          <FormMessage className="text-red-400" />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-matrixGreen">Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="password"
-                            className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                            placeholder="Create a password"
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={registerForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-matrixGreen">Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="password"
+                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
+                              placeholder="Create a password"
+                            />
+                          </FormControl>
+                          <FormMessage className="text-red-400" />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-matrixGreen">Confirm Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="password"
-                            className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
-                            placeholder="Confirm your password"
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={registerForm.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-matrixGreen">Confirm Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="password"
+                              className="bg-spaceBlack border-neonGreen/30 focus:border-neonGreen focus:ring-neonGreen/20 text-matrixGreen"
+                              placeholder="Confirm your password"
+                            />
+                          </FormControl>
+                          <FormMessage className="text-red-400" />
+                        </FormItem>
+                      )}
+                    />
 
+                    <CyberButton
+                      type="submit"
+                      className="w-full mt-2"
+                      disabled={isRegistering}
+                      iconLeft={<i className="fas fa-user-plus"></i>}
+                    >
+                      {isRegistering ? "CREATING ACCOUNT..." : "CREATE NEURAL LINK"}
+                    </CyberButton>
+                  </form>
+                </Form>
+                
+                <div className="my-4">
+                  <div className="relative flex items-center py-2">
+                    <div className="flex-grow border-t border-neonGreen/20"></div>
+                    <span className="flex-shrink mx-3 text-xs text-matrixGreen">OR</span>
+                    <div className="flex-grow border-t border-neonGreen/20"></div>
+                  </div>
+                  
                   <CyberButton
-                    type="submit"
-                    className="w-full mt-2"
-                    disabled={isRegistering}
-                    iconLeft={<i className="fas fa-user-plus"></i>}
+                    type="button"
+                    variant="secondary"
+                    className="w-full"
+                    onClick={handleTwitterLogin}
+                    disabled={isTwitterLoading}
+                    iconLeft={<Twitter className="h-4 w-4 text-cyberBlue" />}
                   >
-                    {isRegistering ? "CREATING ACCOUNT..." : "CREATE NEURAL LINK"}
+                    {isTwitterLoading ? "CONNECTING..." : "REGISTER WITH TWITTER"}
                   </CyberButton>
-                </form>
-              </Form>
+                </div>
+              </div>
             )}
 
             <div className="mt-6 text-center text-xs text-techWhite/60">

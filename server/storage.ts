@@ -11,6 +11,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByTwitterId(twitterId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserTwitterCredentials(id: number, twitterData: Partial<User>): Promise<User | undefined>;
   
@@ -80,6 +81,12 @@ export class MemStorage implements IStorage {
       (user) => user.email === email,
     );
   }
+  
+  async getUserByTwitterId(twitterId: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.twitterId === twitterId,
+    );
+  }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userCurrentId++;
@@ -87,7 +94,12 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       id, 
-      twitterConnected: false,
+      twitterConnected: insertUser.twitterConnected ?? false,
+      twitterUsername: insertUser.twitterUsername ?? null,
+      twitterId: insertUser.twitterId ?? null,
+      accessToken: insertUser.accessToken ?? null,
+      refreshToken: insertUser.refreshToken ?? null,
+      tokenExpiry: insertUser.tokenExpiry ?? null,
       createdAt: now
     };
     this.users.set(id, user);
@@ -116,6 +128,11 @@ export class MemStorage implements IStorage {
       ...insertPost,
       id,
       published: false,
+      twitterId: null,
+      imageUrl: insertPost.imageUrl || null,
+      scheduledFor: insertPost.scheduledFor || null,
+      aiGenerated: insertPost.aiGenerated || null,
+      engagement: null,
       createdAt: now
     };
     this.posts.set(id, post);
@@ -155,6 +172,10 @@ export class MemStorage implements IStorage {
       ...insertCall,
       id,
       startDate: now,
+      endDate: null,
+      currentPrice: insertCall.currentPrice || null,
+      profitLoss: null,
+      postId: null,
       status: "ACTIVE"
     };
     this.tradingCalls.set(id, call);
@@ -200,7 +221,11 @@ export class MemStorage implements IStorage {
     const metrics: Metrics = {
       ...insertMetrics,
       id,
-      date: now
+      date: now,
+      followers: insertMetrics.followers || null,
+      engagement: insertMetrics.engagement || null,
+      impressions: insertMetrics.impressions || null,
+      aiEfficiency: insertMetrics.aiEfficiency || null
     };
     this.metricsData.set(id, metrics);
     return metrics;

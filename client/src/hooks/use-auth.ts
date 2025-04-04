@@ -40,6 +40,24 @@ export function useAuth() {
     }
   }, [isLoadingUser]);
 
+  // Twitter Auth
+  const loginWithTwitter = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/twitter/auth/login");
+      const data = await response.json();
+      
+      // Redirect to Twitter auth URL
+      window.location.href = data.url;
+    } catch (error) {
+      console.error("Error initiating Twitter auth:", error);
+      toast({
+        title: "Twitter Login Failed",
+        description: "Could not initiate Twitter login. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // We don't need the redirect logic here anymore since it's handled by the ProtectedRoute component
   // and the login page itself. This avoids circular redirects when multiple redirects happen simultaneously.
 
@@ -123,5 +141,6 @@ export function useAuth() {
     isRegistering: registerMutation.isPending,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
+    loginWithTwitter
   };
 }

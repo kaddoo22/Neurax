@@ -160,7 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // TWITTER INTEGRATION ROUTES
 
-  // Initiate Twitter OAuth
+  // Initiate Twitter OAuth for connected users
   app.get("/api/twitter/auth", isAuthenticated, (req: Request, res: Response) => {
     try {
       const state = crypto.randomBytes(16).toString("hex");
@@ -170,6 +170,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ url: authUrl });
     } catch (error) {
       console.error("Twitter auth error:", error);
+      res.status(500).json({ message: "Failed to initiate Twitter authentication" });
+    }
+  });
+  
+  // Twitter OAuth for login/registration
+  app.get("/api/twitter/auth/login", (req: Request, res: Response) => {
+    try {
+      const state = crypto.randomBytes(16).toString("hex");
+      req.session.oauthState = state;
+      
+      const authUrl = twitterService.generateAuthUrl(state);
+      res.json({ url: authUrl });
+    } catch (error) {
+      console.error("Twitter auth login error:", error);
       res.status(500).json({ message: "Failed to initiate Twitter authentication" });
     }
   });
@@ -190,24 +204,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user profile
       const profile = await twitterService.getUserProfile(accessToken);
       
-      // Update user with Twitter credentials
-      const userId = req.session.userId as number;
-      const tokenExpiry = new Date();
-      tokenExpiry.setSeconds(tokenExpiry.getSeconds() + expiresIn);
+      // Check if user is already logged in (connecting Twitter to existing account)
+      if (req.session.userId) {
+        const userId = req.session.userId as number;
+        const tokenExpiry = new Date();
+        tokenExpiry.setSeconds(tokenExpiry.getSeconds() + expiresIn);
+        
+        // Update user with Twitter credentials
+        await storage.updateUserTwitterCredentials(userId, {
+          twitterId: profile.id,
+          twitterUsername: profile.username,
+          accessToken,
+          refreshToken,
+          tokenExpiry,
+          twitterConnected: true
+        });
+        
+        // Redirect to frontend
+        return res.redirect("/dashboard");
+      } 
       
-      await storage.updateUserTwitterCredentials(userId, {
-        twitterId: profile.id,
-        twitterUsername: profile.username,
-        accessToken,
-        refreshToken,
-        tokenExpiry
-      });
+      // Login/register via Twitter case:
+      // Check if user with this Twitter ID already exists
+      let user = await storage.getUserByTwitterId(profile.id);
       
-      // Redirect to frontend
+      if (!user) {
+        // Create a new user with Twitter credentials
+        const randomPassword = crypto.randomBytes(16).toString('hex');
+        user = await storage.createUser({
+          username: profile.username,
+          email: `${profile.username}@twitter.com`, // Placeholder email
+          password: randomPassword,
+          twitterId: profile.id,
+          twitterUsername: profile.username,
+          accessToken,
+          refreshToken,
+          tokenExpiry: new Date(Date.now() + expiresIn * 1000),
+          twitterConnected: true
+        });
+      } else {
+        // Update existing user's Twitter credentials 
+        const tokenExpiry = new Date();
+        tokenExpiry.setSeconds(tokenExpiry.getSeconds() + expiresIn);
+        
+        await storage.updateUserTwitterCredentials(user.id, {
+          accessToken,
+          refreshToken,
+          tokenExpiry,
+          twitterConnected: true
+        });
+      }
+      
+      // Set user session
+      req.session.userId = user.id;
+      
+      // Redirect to dashboard
       res.redirect("/dashboard");
     } catch (error) {
       console.error("Twitter callback error:", error);
-      res.redirect("/settings?error=twitter_auth_failed");
+      res.redirect("/login?error=twitter_auth_failed");
     }
   });
 
