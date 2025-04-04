@@ -26,7 +26,8 @@ export function useAuth() {
     queryKey: ["/api/auth/user"],
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes,
+    enabled: true, // Always enable but handle redirection separately
   });
   
   // Set loading state when user query settles
@@ -36,12 +37,22 @@ export function useAuth() {
     }
   }, [isLoadingUser]);
 
+  // Get current path
+  const [currentPath] = useLocation();
+  const isLoginPage = currentPath === "/login";
+  
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoadingUser && !user && !window.location.pathname.includes("/login")) {
+    // Only redirect if we're not already on the login page and the query has completed
+    if (!isLoadingUser && !user && !isLoginPage) {
+      console.log("User not authenticated, redirecting to login");
       setLocation("/login");
+    } else if (user && isLoginPage) {
+      // If user is authenticated and on login page, redirect to dashboard
+      console.log("User already authenticated, redirecting to dashboard");
+      setLocation("/dashboard");
     }
-  }, [isLoadingUser, user, setLocation]);
+  }, [isLoadingUser, user, setLocation, isLoginPage]);
 
   // Login mutation
   const loginMutation = useMutation({
