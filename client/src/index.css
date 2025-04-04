@@ -1,0 +1,202 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    
+    --primary: 140 100% 50%;
+    --primary-foreground: 210 40% 98%;
+    
+    --secondary: 180 100% 50%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    
+    --accent: 280 100% 50%;
+    --accent-foreground: 210 40% 98%;
+    
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 142.1 76.2% 36.3%;
+    
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply font-tech antialiased bg-background text-foreground;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(57, 255, 20, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(0, 255, 255, 0.05) 0%, transparent 50%);
+    position: relative;
+    overflow-x: hidden;
+  }
+  
+  /* Custom font classes */
+  .font-mono {
+    font-family: 'Share Tech Mono', monospace;
+  }
+  
+  .font-tech {
+    font-family: 'Rajdhani', sans-serif;
+  }
+  
+  .font-future {
+    font-family: 'Orbitron', sans-serif;
+  }
+}
+
+@layer components {
+  .matrix-bg {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .matrix-bg::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 200%;
+    background: linear-gradient(180deg, transparent 0%, rgba(57, 255, 20, 0.3) 100%);
+    animation: matrix 20s linear infinite;
+    opacity: 0.1;
+    z-index: 0;
+    pointer-events: none;
+  }
+  
+  .scanning-effect::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: rgba(57, 255, 20, 0.5);
+    box-shadow: 0 0 15px 3px rgba(57, 255, 20, 0.5);
+    animation: scan 2s ease-in-out infinite;
+    z-index: 1;
+    pointer-events: none;
+  }
+  
+  .cyber-card {
+    @apply bg-[rgba(18,18,18,0.7)] backdrop-blur-sm border border-neonGreen/20 shadow-lg;
+    transition: all 0.3s ease;
+  }
+  
+  .cyber-card:hover {
+    box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+    @apply border-neonGreen/40;
+  }
+}
+
+@layer utilities {
+  .text-neonGreen {
+    color: #39FF14;
+  }
+  
+  .text-cyberBlue {
+    color: #00FFFF;
+  }
+  
+  .text-electricPurple {
+    color: #9D00FF;
+  }
+  
+  .text-matrixGreen {
+    color: #CCFFCC;
+  }
+  
+  .text-techWhite {
+    color: #F0F0F0;
+  }
+  
+  .bg-neonGreen {
+    background-color: #39FF14;
+  }
+  
+  .bg-cyberBlue {
+    background-color: #00FFFF;
+  }
+  
+  .bg-electricPurple {
+    background-color: #9D00FF;
+  }
+  
+  .bg-spaceBlack {
+    background-color: #050505;
+  }
+  
+  .bg-cyberDark {
+    background-color: #121212;
+  }
+  
+  .border-neonGreen {
+    border-color: #39FF14;
+  }
+  
+  .animate-matrix {
+    animation: matrix 20s linear infinite;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 2s infinite;
+  }
+  
+  .animate-scan {
+    animation: scan 2s ease-in-out infinite;
+  }
+  
+  .animate-glitch {
+    animation: glitch 5s infinite;
+  }
+}
+
+@keyframes matrix {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px #39FF14, 0 0 10px #39FF14; }
+  50% { box-shadow: 0 0 20px #39FF14, 0 0 25px #39FF14; }
+}
+
+@keyframes scan {
+  0% { transform: translateY(-100%); opacity: 0.2; }
+  50% { opacity: 0.3; }
+  100% { transform: translateY(100%); opacity: 0.2; }
+}
+
+@keyframes glitch {
+  0%, 100% { transform: translate(0); }
+  10% { transform: translate(-5px, 0); }
+  20% { transform: translate(5px, 0); }
+  30% { transform: translate(-3px, 0); }
+  40% { transform: translate(3px, 0); }
+  50% { transform: translate(0); }
+}
+
+@keyframes loading {
+  0% { left: -50%; }
+  100% { left: 150%; }
+}
