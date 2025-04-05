@@ -61,12 +61,12 @@ export class XService {
     // Generazione PKCE per sicurezza avanzata
     const { codeVerifier, codeChallenge } = this.generatePKCE();
     
-    // Salviamo il code verifier nella sessione o in un database sicuro
-    // In questa implementazione, lo indichiamo come commento
-    console.log(`Code verifier for state ${state}: ${codeVerifier}`);
+    // In una implementazione reale, salveremmo il code_verifier in un database
+    // Invece lo memorizziamo in una mappa codice:verifier globale
+    (global as any).codeVerifiers = (global as any).codeVerifiers || {};
+    (global as any).codeVerifiers[state] = codeVerifier;
     
-    // Per questa demo, usiamo ancora un verifier statico per semplicità
-    // In produzione, usare il codice sopra e salvare codeVerifier
+    console.log(`Code verifier for state ${state}: ${codeVerifier}`);
     
     // Nuovi scope API X 2025 per accesso ampliato
     const scopes = [
@@ -75,9 +75,7 @@ export class XService {
       'users.read',
       'offline.access',
       'account.follows.read',
-      'account.follows.write',
-      'dm.read',
-      'dm.write'
+      'account.follows.write'
     ].join(' ');
     
     // Compatibilità con endpoint esistente
@@ -87,14 +85,14 @@ export class XService {
     authUrl.searchParams.append('redirect_uri', this.callbackUrl);
     authUrl.searchParams.append('scope', scopes);
     authUrl.searchParams.append('state', state);
-    authUrl.searchParams.append('code_challenge', 'challenge'); // In produzione: codeChallenge
-    authUrl.searchParams.append('code_challenge_method', 'plain'); // In produzione: S256
+    authUrl.searchParams.append('code_challenge', codeChallenge);
+    authUrl.searchParams.append('code_challenge_method', 'S256');
     
     return authUrl.toString();
   }
 
   // Scambia codice OAuth per token di accesso con gestione avanzata degli errori
-  async getAccessToken(code: string | null | undefined): Promise<{
+  async getAccessToken(code: string | null | undefined, state?: string): Promise<{
     accessToken: string;
     refreshToken: string;
     expiresIn: number;
@@ -109,12 +107,24 @@ export class XService {
     
     const tokenUrl = `${this.baseApiUrl}/oauth2/token`;
     
+    // Recuperiamo il code verifier corretto per questo state
+    let codeVerifier = 'challenge'; // Fallback per retrocompatibilità
+    
+    if (state && (global as any).codeVerifiers && (global as any).codeVerifiers[state]) {
+      codeVerifier = (global as any).codeVerifiers[state];
+      console.log(`Using code verifier for state ${state}: ${codeVerifier}`);
+      // Rimuovo dalla mappa il verifier già utilizzato
+      delete (global as any).codeVerifiers[state];
+    } else {
+      console.log(`Code verifier not found for state: ${state || 'undefined'}, using fallback`);
+    }
+    
     const params = new URLSearchParams();
     params.append('code', code);
     params.append('grant_type', 'authorization_code');
     params.append('client_id', this.clientId);
     params.append('redirect_uri', this.callbackUrl);
-    params.append('code_verifier', 'challenge'); // In produzione: codeVerifier salvato
+    params.append('code_verifier', codeVerifier);
     
     // Autenticazione avanzata con Basic Auth + client credentials
     const basicAuth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');

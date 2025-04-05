@@ -6,12 +6,14 @@ interface TwitterConnectionProps {
   isConnected: boolean;
   onConnect: () => void;
   username: string;
+  onSendTestTweet?: () => void; // Callback opzionale per inviare tweet di test
 }
 
 const TwitterConnection: React.FC<TwitterConnectionProps> = ({
   isConnected,
   onConnect,
   username,
+  onSendTestTweet,
 }) => {
   return (
     <DashboardCard title="Twitter Integration" titleColor="cyberBlue">
@@ -58,6 +60,18 @@ const TwitterConnection: React.FC<TwitterConnectionProps> = ({
             </div>
           </div>
 
+          <div className="grid grid-cols-1 gap-2 mb-4">
+            <CyberButton
+              className="w-full bg-gradient-to-r from-neonGreen/20 to-cyberBlue/20 border-neonGreen/40"
+              variant="outline"
+              onClick={onSendTestTweet}
+              iconLeft={<i className="fas fa-paper-plane"></i>}
+              disabled={!onSendTestTweet}
+            >
+              INVIA TWEET DI TEST "CIAO MONDO"
+            </CyberButton>
+          </div>
+          
           <div className="grid grid-cols-2 gap-2">
             <CyberButton
               className="w-full"

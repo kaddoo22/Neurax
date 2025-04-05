@@ -202,8 +202,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid OAuth state" });
       }
       
-      // Exchange code for access token
-      const { accessToken, refreshToken, expiresIn } = await twitterService.getAccessToken(code as string);
+      // Exchange code for access token 
+      const { accessToken, refreshToken, expiresIn } = await twitterService.getAccessToken(code as string, state as string);
       
       // Get user profile
       const profile = await twitterService.getUserProfile(accessToken);
