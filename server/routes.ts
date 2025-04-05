@@ -19,6 +19,7 @@ declare module 'express-session' {
   interface SessionData {
     userId: number;
     oauthState: string;
+    oauthTokenSecret: string; // Per OAuth 1.0a
   }
 }
 
@@ -243,30 +244,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Twitter OAuth for login/registration
-  app.get("/api/twitter/auth/login", (req: Request, res: Response) => {
+  // Twitter OAuth 1.0a per login/registration
+  app.get("/api/twitter/auth/login", async (req: Request, res: Response) => {
     try {
-      const state = crypto.randomBytes(16).toString("hex");
-      req.session.oauthState = state;
-      console.log("Session state impostato per login:", state);
+      console.log("Avvio autenticazione Twitter con OAuth 1.0a...");
+      
+      // Ottieni un request token con OAuth 1.0a
+      const { oauthToken, oauthTokenSecret } = await twitterService.getRequestToken();
+      
+      // Salva il token secret nella sessione
+      req.session.oauthTokenSecret = oauthTokenSecret;
+      console.log("OAuth 1.0a token ottenuto:", oauthToken);
       console.log("Session ID:", req.sessionID);
       
-      const authUrl = twitterService.generateAuthUrl(state);
+      // Ottieni URL di autorizzazione
+      const authUrl = twitterService.getAuthorizationUrl(oauthToken);
       res.json({ url: authUrl });
     } catch (error) {
-      console.error("Twitter auth login error:", error);
-      res.status(500).json({ message: "Failed to initiate Twitter authentication" });
+      console.error("Twitter auth login error (OAuth 1.0a):", error);
+      res.status(500).json({ message: "Failed to initiate Twitter authentication", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
-  // Twitter OAuth callback con miglioramenti nella gestione degli errori
+  // Twitter OAuth callback con supporto sia per OAuth 1.0a che OAuth 2.0
   app.get("/api/auth/twitter/callback", async (req: Request, res: Response) => {
     try {
       console.log("Twitter callback ricevuto:", req.query);
-      console.log("Dati sessione:", { userId: req.session.userId, oauthState: req.session.oauthState });
-      console.log("Headers:", req.headers);
+      console.log("Dati sessione:", { 
+        userId: req.session.userId, 
+        oauthState: req.session.oauthState,
+        oauthTokenSecret: req.session.oauthTokenSecret  // Per OAuth 1.0a
+      });
       
-      const { code, state, error } = req.query;
+      // Determina quale flusso OAuth stiamo utilizzando
+      const { oauth_token, oauth_verifier, code, state, error } = req.query;
       
       // Verifica se Twitter ha restituito un errore
       if (error) {
@@ -274,32 +285,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect("/login?error=twitter_auth_error&details=" + encodeURIComponent(String(error)));
       }
       
-      const storedState = req.session.oauthState;
+      let profile: { id: string; username: string; name: string; };
+      let accessToken: string;
+      let refreshToken: string; 
+      let expiresIn: number = 86400; // Default 24 ore
       
-      if (!code) {
-        console.error("Manca il codice di autorizzazione nella risposta di Twitter");
-        return res.redirect("/login?error=missing_auth_code");
+      // Logica decisionale tra OAuth 1.0a e OAuth 2.0
+      if (oauth_token && oauth_verifier) {
+        // Flusso OAuth 1.0a
+        console.log("Rilevato callback OAuth 1.0a");
+        const oauthTokenSecret = req.session.oauthTokenSecret;
+        
+        if (!oauthTokenSecret) {
+          console.error("OAuth token secret non trovato nella sessione");
+          return res.redirect("/login?error=missing_oauth_token_secret");
+        }
+        
+        console.log("OAuth 1.0a token e verifier ricevuti, ottengo access token...");
+        
+        try {
+          // Ottieni access token con OAuth 1.0a
+          const oauthResult = await twitterService.getAccessTokenOAuth1(
+            oauth_token as string,
+            oauthTokenSecret,
+            oauth_verifier as string
+          );
+          
+          // Imposta i valori per il resto del flusso
+          accessToken = oauthResult.oauthToken;
+          refreshToken = oauthResult.oauthTokenSecret;
+          
+          // Crea una rappresentazione del profilo simile a quella di OAuth 2.0
+          profile = {
+            id: oauthResult.userId,
+            username: oauthResult.screenName,
+            name: oauthResult.screenName  // In OAuth 1.0a potremmo non avere il name
+          };
+          
+          console.log("Token di accesso OAuth 1.0a ottenuto per:", profile.username);
+        } catch (oauthError) {
+          console.error("Errore nel recupero token OAuth 1.0a:", oauthError);
+          return res.redirect("/login?error=oauth1_token_error&details=" + 
+                            encodeURIComponent(oauthError instanceof Error ? oauthError.message : String(oauthError)));
+        }
+      } else if (code && state) {
+        // Flusso OAuth 2.0 standard
+        console.log("Rilevato callback OAuth 2.0");
+        const storedState = req.session.oauthState;
+        
+        if (state !== storedState) {
+          console.error("Stato OAuth 2.0 non valido. Ricevuto:", state, "Memorizzato:", storedState);
+          return res.redirect("/login?error=invalid_oauth_state");
+        }
+        
+        console.log("Autenticazione OAuth 2.0 convalidata, scambio del codice per token di accesso...");
+        
+        // Scambio codice per token di accesso
+        const tokens = await twitterService.getAccessToken(code as string, state as string);
+        accessToken = tokens.accessToken;
+        refreshToken = tokens.refreshToken;
+        expiresIn = tokens.expiresIn;
+        
+        console.log("Token di accesso OAuth 2.0 ottenuto, richiesta del profilo utente...");
+        
+        // Ottieni profilo utente
+        profile = await twitterService.getUserProfile(accessToken);
+      } else {
+        console.error("Parametri OAuth mancanti o non validi nella risposta callback");
+        return res.redirect("/login?error=invalid_oauth_response");
       }
       
-      if (!state) {
-        console.error("Manca lo state nella risposta di Twitter");
-        return res.redirect("/login?error=missing_state");
-      }
-      
-      if (state !== storedState) {
-        console.error("Stato OAuth non valido. Ricevuto:", state, "Memorizzato:", storedState);
-        return res.redirect("/login?error=invalid_oauth_state");
-      }
-      
-      console.log("Autenticazione OAuth convalidata, scambio del codice per token di accesso...");
-      
-      // Scambio codice per token di accesso
-      const { accessToken, refreshToken, expiresIn } = await twitterService.getAccessToken(code as string, state as string);
-      
-      console.log("Token di accesso ottenuto, richiesta del profilo utente...");
-      
-      // Ottieni profilo utente
-      const profile = await twitterService.getUserProfile(accessToken);
+      console.log("Profilo utente Twitter ottenuto:", { id: profile.id, username: profile.username });
       
       console.log("Profilo utente Twitter ottenuto:", { id: profile.id, username: profile.username });
       

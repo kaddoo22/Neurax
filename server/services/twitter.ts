@@ -1,32 +1,45 @@
 import crypto from 'crypto';
 import { z } from 'zod';
 import { Buffer } from 'buffer';
+import OAuth from 'oauth-1.0a';
+import fetch from 'node-fetch';
 
-// X API (formerly Twitter) client for 2025
-// This service handles all interactions with the X platform API
+// Twitter/X API client che supporta sia OAuth 1.0a che OAuth 2.0
+// Questa implementazione offre doppio livello di compatibilità per massima resilienza
 export class XService {
+  // Credenziali API e configurazione
   private clientId: string;
   private clientSecret: string;
   private bearerToken: string;
   private accessToken: string | null;
+  private accessTokenSecret: string | null;
   private callbackUrl: string;
-  private baseApiUrl: string = 'https://api.x.com/v3'; // Aggiornato al dominio x.com e API v3
-  private mediaApiUrl: string = 'https://upload.x.com/1.1'; // API per upload media
+  
+  // Endpoint API
+  private baseApiUrl: string = 'https://api.x.com/v3'; 
+  private mediaApiUrl: string = 'https://upload.x.com/1.1';
+  private oauth1BaseUrl: string = 'https://api.twitter.com/1.1';
+  
+  // Gestione ottimizzata delle connessioni
   private retryLimit: number = 3;
   private rateLimitReset: Record<string, number> = {};
+  
+  // Istanza OAuth 1.0a
+  private oauth1Client: OAuth;
 
   constructor() {
+    // Carica tutte le credenziali possibili per massima flessibilità
     this.clientId = process.env.TWITTER_API_KEY || '';
     this.clientSecret = process.env.TWITTER_API_SECRET || '';
     this.bearerToken = process.env.TWITTER_BEARER_TOKEN || '';
     this.accessToken = process.env.TWITTER_ACCESS_TOKEN || '';
+    this.accessTokenSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET || '';
     
-    // Utilizzo l'URL di callback configurato oppure l'URL locale come fallback
+    // URL di callback configurato (o fallback locale)
     let configuredCallbackUrl = process.env.TWITTER_CALLBACK_URL || 'http://localhost:5000/api/auth/twitter/callback';
     
-    // Correggo eventuali problemi con l'URL di callback
+    // Correzione problemi URL di callback
     if (configuredCallbackUrl.includes('/login/api/')) {
-      // Rimuovo il /login se presente nel percorso errato
       configuredCallbackUrl = configuredCallbackUrl.replace('/login/api/', '/api/');
       console.log('URL di callback corretto:', configuredCallbackUrl);
     }
@@ -34,21 +47,36 @@ export class XService {
     this.callbackUrl = configuredCallbackUrl;
     console.log('URL di callback usato:', this.callbackUrl);
 
-    // Per retrocompatibilità, continuiamo a usare le variabili d'ambiente con prefisso TWITTER_
-    if (!this.clientId || !this.clientSecret || !this.bearerToken) {
-      console.warn('X API credentials not configured. X platform features will be disabled.');
+    // Controllo credenziali
+    if (!this.clientId || !this.clientSecret) {
+      console.warn('Twitter API credentials not configured. Twitter features will be limited.');
     }
     
-    // Per compatibilità con il deployment in corso, usiamo ancora gli endpoint Twitter
-    // nelle API di produzione, ma i commenti riflettono la logica moderna
+    // Configura gli endpoint di produzione
     this.baseApiUrl = 'https://api.twitter.com/2';
     this.mediaApiUrl = 'https://upload.twitter.com/1.1';
+    this.oauth1BaseUrl = 'https://api.twitter.com/1.1';
+    
+    // Inizializza OAuth 1.0a client
+    this.oauth1Client = new OAuth({
+      consumer: {
+        key: this.clientId,
+        secret: this.clientSecret
+      },
+      signature_method: 'HMAC-SHA1',
+      hash_function(baseString, key) {
+        return crypto
+          .createHmac('sha1', key)
+          .update(baseString)
+          .digest('base64');
+      }
+    });
   }
   
-  // Verifica se le credenziali X sono configurate correttamente
+  // Verifica credenziali
   private checkCredentials(): boolean {
-    if (!this.clientId || !this.clientSecret || !this.bearerToken) {
-      console.warn('X API credentials not configured. Cannot perform X platform operations.');
+    if (!this.clientId || !this.clientSecret) {
+      console.warn('Twitter API credentials not configured.');
       return false;
     }
     return true;
@@ -414,6 +442,110 @@ export class XService {
     }
   }
   
+  // Implementazione OAuth 1.0a per autenticazione alternativa
+  async getRequestToken(): Promise<{ oauthToken: string; oauthTokenSecret: string; }> {
+    if (!this.checkCredentials()) {
+      throw new Error('Twitter API credentials not configured');
+    }
+    
+    const requestData = {
+      url: 'https://api.twitter.com/oauth/request_token',
+      method: 'POST',
+      data: { oauth_callback: this.callbackUrl }
+    };
+    
+    const headers = this.oauth1Client.toHeader(
+      this.oauth1Client.authorize(requestData)
+    );
+    
+    try {
+      const response = await fetch(requestData.url, {
+        method: requestData.method,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Twitter request token failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const responseText = await response.text();
+      const parsedResponse = new URLSearchParams(responseText);
+      
+      return {
+        oauthToken: parsedResponse.get('oauth_token') || '',
+        oauthTokenSecret: parsedResponse.get('oauth_token_secret') || ''
+      };
+    } catch (error: any) {
+      console.error('Twitter OAuth 1.0a request token error:', error.message);
+      throw new Error(`Twitter request token failed: ${error.message}`);
+    }
+  }
+  
+  // OAuth 1.0a - Ottiene URL per autorizzazione
+  getAuthorizationUrl(oauthToken: string): string {
+    return `https://api.twitter.com/oauth/authenticate?oauth_token=${oauthToken}`;
+  }
+  
+  // OAuth 1.0a - Ottiene access token
+  async getAccessTokenOAuth1(
+    oauthToken: string,
+    oauthTokenSecret: string,
+    oauthVerifier: string
+  ): Promise<{
+    oauthToken: string;
+    oauthTokenSecret: string;
+    userId: string;
+    screenName: string;
+  }> {
+    if (!this.checkCredentials()) {
+      throw new Error('Twitter API credentials not configured');
+    }
+    
+    const requestData = {
+      url: 'https://api.twitter.com/oauth/access_token',
+      method: 'POST',
+      data: { oauth_verifier: oauthVerifier }
+    };
+    
+    const headers = this.oauth1Client.toHeader(
+      this.oauth1Client.authorize(
+        requestData,
+        { key: oauthToken, secret: oauthTokenSecret }
+      )
+    );
+    
+    try {
+      const response = await fetch(requestData.url, {
+        method: requestData.method,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({ oauth_verifier: oauthVerifier }).toString()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Twitter access token failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const responseText = await response.text();
+      const parsedResponse = new URLSearchParams(responseText);
+      
+      return {
+        oauthToken: parsedResponse.get('oauth_token') || '',
+        oauthTokenSecret: parsedResponse.get('oauth_token_secret') || '',
+        userId: parsedResponse.get('user_id') || '',
+        screenName: parsedResponse.get('screen_name') || ''
+      };
+    } catch (error: any) {
+      console.error('Twitter OAuth 1.0a access token error:', error.message);
+      throw new Error(`Twitter access token failed: ${error.message}`);
+    }
+  }
+  
   // Ottieni l'elenco dei follower
   async getFollowers(accessToken: string, userId: string, limit: number = 100): Promise<Array<{
     id: string;
@@ -443,7 +575,7 @@ export class XService {
   }
   
   // Ottimizzazione del fetch con gestione intelligente degli errori e rate limiting
-  private async fetchWithRetry(url: string, options: RequestInit, retryCount: number = 0): Promise<Response> {
+  private async fetchWithRetry(url: string, options: any, retryCount: number = 0): Promise<any> {
     try {
       // Controlla se siamo in rate limit per questo endpoint
       const endpoint = new URL(url).pathname;
@@ -453,6 +585,7 @@ export class XService {
         await new Promise(resolve => setTimeout(resolve, waitTime + 100));
       }
       
+      // Utilizziamo node-fetch senza tipo specifico per evitare conflitti di tipo
       const response = await fetch(url, options);
       
       // Gestione del rate limiting
@@ -479,7 +612,7 @@ export class XService {
         }
         
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`X API error: ${response.status} - ${JSON.stringify(errorData)}`);
+        throw new Error(`Twitter API error: ${response.status} - ${JSON.stringify(errorData)}`);
       }
       
       return response;
