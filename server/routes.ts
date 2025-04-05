@@ -160,11 +160,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // TWITTER INTEGRATION ROUTES
 
+  // Endpoint diagnostico per verificare le credenziali Twitter
+  app.get("/api/twitter/diagnostics", async (req: Request, res: Response) => {
+    try {
+      interface Diagnostics {
+        apiKey: string;
+        apiSecret: string;
+        bearerToken: string;
+        callbackUrl: string;
+        urlCallbackCorretto: string;
+        environmentVariablesOk: boolean;
+        sessionConfig: {
+          secure: boolean;
+          domain: string;
+          hasSession: boolean;
+        };
+        testApiResponse?: {
+          status: number;
+          ok: boolean;
+          statusText: string;
+        };
+        testApiError?: string;
+      }
+      
+      const diagnostics: Diagnostics = {
+        apiKey: process.env.TWITTER_API_KEY ? "Presente [" + process.env.TWITTER_API_KEY.substring(0, 5) + "...]" : "Mancante",
+        apiSecret: process.env.TWITTER_API_SECRET ? "Presente [" + process.env.TWITTER_API_SECRET.substring(0, 5) + "...]" : "Mancante",
+        bearerToken: process.env.TWITTER_BEARER_TOKEN ? "Presente [" + process.env.TWITTER_BEARER_TOKEN.substring(0, 5) + "...]" : "Mancante",
+        callbackUrl: process.env.TWITTER_CALLBACK_URL || "Mancante",
+        urlCallbackCorretto: "https://ba637891-195c-4db4-8b91-ec8a2771b16b-00-1llou1bj71p8d.kirk.replit.dev/api/auth/twitter/callback",
+        environmentVariablesOk: !!(process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET && process.env.TWITTER_BEARER_TOKEN && process.env.TWITTER_CALLBACK_URL),
+        sessionConfig: {
+          secure: req.secure,
+          domain: req.hostname,
+          hasSession: !!req.session,
+        }
+      };
+      
+      // Test della chiamata API Twitter non autenticata
+      try {
+        const testResponse = await fetch("https://api.twitter.com/2/users/me", {
+          headers: {
+            "Authorization": `Bearer ${process.env.TWITTER_BEARER_TOKEN}`
+          }
+        });
+        
+        diagnostics.testApiResponse = {
+          status: testResponse.status,
+          ok: testResponse.ok,
+          statusText: testResponse.statusText,
+        };
+        
+        if (!testResponse.ok) {
+          const errorData = await testResponse.text();
+          diagnostics.testApiError = errorData;
+        }
+      } catch (apiError: unknown) {
+        diagnostics.testApiError = apiError instanceof Error ? apiError.message : String(apiError);
+      }
+      
+      res.json(diagnostics);
+    } catch (error: unknown) {
+      console.error("Errore diagnostica Twitter:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ message: "Errore durante la diagnostica", error: errorMessage });
+    }
+  });
+
   // Initiate Twitter OAuth for connected users
   app.get("/api/twitter/auth", isAuthenticated, (req: Request, res: Response) => {
     try {
       const state = crypto.randomBytes(16).toString("hex");
       req.session.oauthState = state;
+      console.log("Session state impostato per auth:", state);
+      console.log("Session ID:", req.sessionID);
       
       const authUrl = twitterService.generateAuthUrl(state);
       res.json({ url: authUrl });
@@ -179,6 +248,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const state = crypto.randomBytes(16).toString("hex");
       req.session.oauthState = state;
+      console.log("Session state impostato per login:", state);
+      console.log("Session ID:", req.sessionID);
       
       const authUrl = twitterService.generateAuthUrl(state);
       res.json({ url: authUrl });
