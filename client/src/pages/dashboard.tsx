@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useTwitter } from "@/hooks/use-twitter";
 import { useTrading } from "@/hooks/use-trading";
 import { useQuery } from "@tanstack/react-query";
@@ -29,16 +29,18 @@ const Dashboard = () => {
   const [timeMode, setTimeMode] = useState<'day' | 'week' | 'month'>('week');
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
 
-  // Formato data 2025
-  const formattedDate = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).format(currentDateTime);
+  // Formato data 2025 - memorizzata per evitare renderizzazioni infinite
+  const formattedDate = useMemo(() => {
+    return new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(currentDateTime);
+  }, [currentDateTime]);
 
   // Aggiorna l'orario attuale ogni minuto
   useEffect(() => {
@@ -308,14 +310,13 @@ const Dashboard = () => {
               </div>
               <h3 className="text-lg font-future text-cyberBlue mb-2">No Activity Data</h3>
               <p className="text-matrixGreen/70 mb-6">Your NeuraX assistant is waiting for your first command</p>
-              <Link href="/manual-post">
-                <CyberButton
-                  iconLeft={<i className="fas fa-broadcast-tower"></i>}
-                  className="bg-gradient-to-r from-cyberBlue/20 to-neonGreen/20 hover:from-cyberBlue/30 hover:to-neonGreen/30 border-cyberBlue/40"
-                >
-                  INITIALIZE CONTENT PROTOCOL
-                </CyberButton>
-              </Link>
+              <CyberButton
+                onClick={() => window.location.href = "/manual-post"}
+                iconLeft={<i className="fas fa-broadcast-tower"></i>}
+                className="bg-gradient-to-r from-cyberBlue/20 to-neonGreen/20 hover:from-cyberBlue/30 hover:to-neonGreen/30 border-cyberBlue/40"
+              >
+                INITIALIZE CONTENT PROTOCOL
+              </CyberButton>
             </div>
           ) : (
             <div className="border-l-2 border-neonGreen/30 ml-3 pl-6 relative">
@@ -395,16 +396,13 @@ const Dashboard = () => {
             ))}
           </div>
 
-          <Link href="/crypto-trading">
-            <a>
-              <CyberButton
-                className="w-full bg-gradient-to-r from-electricPurple/20 to-neonGreen/20 hover:from-electricPurple/30 hover:to-neonGreen/30 border-electricPurple/30"
-                iconLeft={<i className="fas fa-arrow-trend-up"></i>}
-              >
-                TRADING DASHBOARD
-              </CyberButton>
-            </a>
-          </Link>
+          <CyberButton
+            onClick={() => window.location.href = "/crypto-trading"}
+            className="w-full bg-gradient-to-r from-electricPurple/20 to-neonGreen/20 hover:from-electricPurple/30 hover:to-neonGreen/30 border-electricPurple/30"
+            iconLeft={<i className="fas fa-arrow-trend-up"></i>}
+          >
+            TRADING DASHBOARD
+          </CyberButton>
         </DashboardCard>
 
         {/* Scheduled Posts */}
@@ -465,41 +463,32 @@ const Dashboard = () => {
                 </div>
                 <h3 className="text-lg font-future text-electricPurple mb-2">Content Queue Empty</h3>
                 <p className="text-matrixGreen/70 mb-6">Your content pipeline is ready for new scheduled posts</p>
-                <Link href="/manual-post">
-                  <a>
-                    <CyberButton
-                      iconLeft={<i className="fas fa-pen-to-square"></i>}
-                      className="bg-gradient-to-r from-electricPurple/20 to-cyberBlue/20 hover:from-electricPurple/30 hover:to-cyberBlue/30 border-electricPurple/40"
-                    >
-                      CREATE NEW CONTENT
-                    </CyberButton>
-                  </a>
-                </Link>
+                <CyberButton
+                  onClick={() => window.location.href = "/manual-post"}
+                  iconLeft={<i className="fas fa-pen-to-square"></i>}
+                  className="bg-gradient-to-r from-electricPurple/20 to-cyberBlue/20 hover:from-electricPurple/30 hover:to-cyberBlue/30 border-electricPurple/40"
+                >
+                  CREATE NEW CONTENT
+                </CyberButton>
               </div>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Link href="/manual-post">
-              <a>
-                <CyberButton
-                  className="w-full bg-gradient-to-r from-cyberBlue/20 to-cyberBlue/10 hover:from-cyberBlue/30 hover:to-cyberBlue/20 border-cyberBlue/30"
-                  iconLeft={<i className="fas fa-pen-fancy"></i>}
-                >
-                  MANUAL EDITOR
-                </CyberButton>
-              </a>
-            </Link>
-            <Link href="/ai-autonomous">
-              <a>
-                <CyberButton
-                  className="w-full bg-gradient-to-r from-electricPurple/20 to-electricPurple/10 hover:from-electricPurple/30 hover:to-electricPurple/20 border-electricPurple/30"
-                  iconLeft={<i className="fas fa-brain"></i>}
-                >
-                  NEURAL GENERATOR
-                </CyberButton>
-              </a>
-            </Link>
+            <CyberButton
+              onClick={() => window.location.href = "/manual-post"}
+              className="w-full bg-gradient-to-r from-cyberBlue/20 to-cyberBlue/10 hover:from-cyberBlue/30 hover:to-cyberBlue/20 border-cyberBlue/30"
+              iconLeft={<i className="fas fa-pen-fancy"></i>}
+            >
+              MANUAL EDITOR
+            </CyberButton>
+            <CyberButton
+              onClick={() => window.location.href = "/ai-autonomous"}
+              className="w-full bg-gradient-to-r from-electricPurple/20 to-electricPurple/10 hover:from-electricPurple/30 hover:to-electricPurple/20 border-electricPurple/30"
+              iconLeft={<i className="fas fa-brain"></i>}
+            >
+              NEURAL GENERATOR
+            </CyberButton>
           </div>
         </DashboardCard>
       </div>

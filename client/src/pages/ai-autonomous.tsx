@@ -14,7 +14,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { CyberButton } from "@/components/ui/cyber-button";
 import { useToast } from "@/hooks/use-toast";
 import { TimelineItem } from "@/components/dashboard/Timeline";
-import { Post } from "@/types";
+// Define an interface for Post that's compatible with what we receive from the API
+interface Post {
+  id: number;
+  userId: number;
+  content: string;
+  imageUrl?: string;
+  scheduledFor?: Date;
+  published: boolean;
+  aiGenerated: boolean;
+  engagement?: any;
+  createdAt: Date;
+}
 
 type MetricsData = {
   id: number;
@@ -158,7 +169,7 @@ const AIAutonomous = () => {
         />
         <StatCard
           label="Impressions"
-          value={metrics?.impressions.toLocaleString() || "0"}
+          value={metrics?.impressions ? metrics.impressions.toLocaleString() : "0"}
           trend="up"
           trendValue="7 day avg"
           color="electricPurple"

@@ -72,9 +72,9 @@ const Sidebar = ({ open, setOpen, onLogout, username }: SidebarProps) => {
         <nav className="space-y-1">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
-              <a
+              <div
                 className={cn(
-                  "nav-item flex items-center gap-3 p-3 rounded hover:bg-neonGreen/10 hover:text-neonGreen transition-all duration-200 border border-transparent hover:border-neonGreen/30 group",
+                  "nav-item flex items-center gap-3 p-3 rounded hover:bg-neonGreen/10 hover:text-neonGreen transition-all duration-200 border border-transparent hover:border-neonGreen/30 group cursor-pointer",
                   location === item.href
                     ? "text-neonGreen bg-neonGreen/10 border-neonGreen/30"
                     : "text-matrixGreen"
@@ -90,7 +90,7 @@ const Sidebar = ({ open, setOpen, onLogout, username }: SidebarProps) => {
                       : "opacity-0 group-hover:animate-pulse"
                   )}
                 ></span>
-              </a>
+              </div>
             </Link>
           ))}
         </nav>

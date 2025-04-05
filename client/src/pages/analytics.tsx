@@ -107,7 +107,7 @@ const Analytics = () => {
             />
             <StatCard
               label="Impressions"
-              value={metrics?.impressions.toLocaleString() || "0"}
+              value={metrics?.impressions ? metrics.impressions.toLocaleString() : "0"}
               trend={trends.impressions.direction}
               trendValue={`${trends.impressions.value}% vs previous`}
               color="electricPurple"
