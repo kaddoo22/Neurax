@@ -155,14 +155,12 @@ const Dashboard = () => {
               </div>
             </div>
             <Link href="/settings">
-              <a>
-                <CyberButton
-                  iconLeft={<i className="fas fa-plug-circle-plus"></i>}
-                  className="px-6 py-3 bg-gradient-to-r from-cyberBlue/20 to-cyberBlue/30 hover:from-cyberBlue/30 hover:to-cyberBlue/40"
-                >
-                  CONNECT X ACCOUNT
-                </CyberButton>
-              </a>
+              <CyberButton
+                iconLeft={<i className="fas fa-plug-circle-plus"></i>}
+                className="px-6 py-3 bg-gradient-to-r from-cyberBlue/20 to-cyberBlue/30 hover:from-cyberBlue/30 hover:to-cyberBlue/40"
+              >
+                CONNECT X ACCOUNT
+              </CyberButton>
             </Link>
           </div>
         </div>
@@ -188,7 +186,7 @@ const Dashboard = () => {
         />
         <StatCard
           label="Total Impressions"
-          value={metrics?.impressions.toLocaleString() || "0"}
+          value={metrics?.impressions ? metrics.impressions.toLocaleString() : "0"}
           trend="up"
           trendValue="7 day avg"
           color="electricPurple"
@@ -311,14 +309,12 @@ const Dashboard = () => {
               <h3 className="text-lg font-future text-cyberBlue mb-2">No Activity Data</h3>
               <p className="text-matrixGreen/70 mb-6">Your NeuraX assistant is waiting for your first command</p>
               <Link href="/manual-post">
-                <a>
-                  <CyberButton
-                    iconLeft={<i className="fas fa-broadcast-tower"></i>}
-                    className="bg-gradient-to-r from-cyberBlue/20 to-neonGreen/20 hover:from-cyberBlue/30 hover:to-neonGreen/30 border-cyberBlue/40"
-                  >
-                    INITIALIZE CONTENT PROTOCOL
-                  </CyberButton>
-                </a>
+                <CyberButton
+                  iconLeft={<i className="fas fa-broadcast-tower"></i>}
+                  className="bg-gradient-to-r from-cyberBlue/20 to-neonGreen/20 hover:from-cyberBlue/30 hover:to-neonGreen/30 border-cyberBlue/40"
+                >
+                  INITIALIZE CONTENT PROTOCOL
+                </CyberButton>
               </Link>
             </div>
           ) : (
