@@ -20,7 +20,19 @@ export class XService {
     this.clientSecret = process.env.TWITTER_API_SECRET || '';
     this.bearerToken = process.env.TWITTER_BEARER_TOKEN || '';
     this.accessToken = process.env.TWITTER_ACCESS_TOKEN || '';
-    this.callbackUrl = process.env.TWITTER_CALLBACK_URL || 'http://localhost:5000/api/auth/twitter/callback';
+    
+    // Utilizzo l'URL di callback configurato oppure l'URL locale come fallback
+    let configuredCallbackUrl = process.env.TWITTER_CALLBACK_URL || 'http://localhost:5000/api/auth/twitter/callback';
+    
+    // Correggo eventuali problemi con l'URL di callback
+    if (configuredCallbackUrl.includes('/login/api/')) {
+      // Rimuovo il /login se presente nel percorso errato
+      configuredCallbackUrl = configuredCallbackUrl.replace('/login/api/', '/api/');
+      console.log('URL di callback corretto:', configuredCallbackUrl);
+    }
+    
+    this.callbackUrl = configuredCallbackUrl;
+    console.log('URL di callback usato:', this.callbackUrl);
 
     // Per retrocompatibilità, continuiamo a usare le variabili d'ambiente con prefisso TWITTER_
     if (!this.clientId || !this.clientSecret || !this.bearerToken) {

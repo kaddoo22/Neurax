@@ -188,33 +188,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Twitter OAuth callback
+  // Twitter OAuth callback con miglioramenti nella gestione degli errori
   app.get("/api/auth/twitter/callback", async (req: Request, res: Response) => {
     try {
-      console.log("Twitter callback received:", req.query);
-      console.log("Session data:", { userId: req.session.userId, oauthState: req.session.oauthState });
+      console.log("Twitter callback ricevuto:", req.query);
+      console.log("Dati sessione:", { userId: req.session.userId, oauthState: req.session.oauthState });
+      console.log("Headers:", req.headers);
       
-      const { code, state } = req.query;
-      const storedState = req.session.oauthState;
+      const { code, state, error } = req.query;
       
-      if (!code || !state || state !== storedState) {
-        console.log("Invalid OAuth state. Received:", state, "Stored:", storedState);
-        return res.status(400).json({ message: "Invalid OAuth state" });
+      // Verifica se Twitter ha restituito un errore
+      if (error) {
+        console.error("Errore restituito da Twitter:", error);
+        return res.redirect("/login?error=twitter_auth_error&details=" + encodeURIComponent(String(error)));
       }
       
-      // Exchange code for access token 
+      const storedState = req.session.oauthState;
+      
+      if (!code) {
+        console.error("Manca il codice di autorizzazione nella risposta di Twitter");
+        return res.redirect("/login?error=missing_auth_code");
+      }
+      
+      if (!state) {
+        console.error("Manca lo state nella risposta di Twitter");
+        return res.redirect("/login?error=missing_state");
+      }
+      
+      if (state !== storedState) {
+        console.error("Stato OAuth non valido. Ricevuto:", state, "Memorizzato:", storedState);
+        return res.redirect("/login?error=invalid_oauth_state");
+      }
+      
+      console.log("Autenticazione OAuth convalidata, scambio del codice per token di accesso...");
+      
+      // Scambio codice per token di accesso
       const { accessToken, refreshToken, expiresIn } = await twitterService.getAccessToken(code as string, state as string);
       
-      // Get user profile
+      console.log("Token di accesso ottenuto, richiesta del profilo utente...");
+      
+      // Ottieni profilo utente
       const profile = await twitterService.getUserProfile(accessToken);
       
-      // Check if user is already logged in (connecting Twitter to existing account)
+      console.log("Profilo utente Twitter ottenuto:", { id: profile.id, username: profile.username });
+      
+      // Verifica se l'utente è già autenticato (connessione Twitter a un account esistente)
       if (req.session.userId) {
+        console.log("Utente già autenticato, collega account Twitter all'account esistente");
         const userId = req.session.userId as number;
         const tokenExpiry = new Date();
         tokenExpiry.setSeconds(tokenExpiry.getSeconds() + expiresIn);
         
-        // Update user with Twitter credentials
+        // Aggiorna utente con credenziali Twitter
         await storage.updateUserTwitterCredentials(userId, {
           twitterId: profile.id,
           twitterUsername: profile.username,
@@ -224,31 +249,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           twitterConnected: true
         });
         
-        console.log("Updated existing user with Twitter credentials, userId:", userId);
+        console.log("Utente esistente aggiornato con credenziali Twitter, userId:", userId);
         
         // Assicurati che la sessione sia salvata prima del redirect
         req.session.save((err) => {
           if (err) {
-            console.error("Error saving session for existing user:", err);
+            console.error("Errore nel salvare la sessione per utente esistente:", err);
             return res.redirect("/settings?error=session_error");
           }
           
-          console.log("Session saved successfully for existing user, redirecting to dashboard");
-          // Redirect to frontend
+          console.log("Sessione salvata con successo per utente esistente, redirect a dashboard");
+          // Redirect al frontend
           return res.redirect("/dashboard");
         });
+        return; // Importante: termina l'esecuzione qui se siamo nel caso di utente autenticato
       } 
       
-      // Login/register via Twitter case:
-      // Check if user with this Twitter ID already exists
+      console.log("Avvio flusso login/registrazione via Twitter");
+      // Caso login/registrazione via Twitter:
+      // Verifica se esiste già un utente con questo ID Twitter
       let user = await storage.getUserByTwitterId(profile.id);
       
       if (!user) {
-        // Create a new user with Twitter credentials
+        console.log("Nessun utente esistente con questo ID Twitter, creazione nuovo utente");
+        // Crea un nuovo utente con credenziali Twitter
         const randomPassword = crypto.randomBytes(16).toString('hex');
         user = await storage.createUser({
           username: profile.username,
-          email: `${profile.username}@twitter.com`, // Placeholder email
+          email: `${profile.username}@twitter.com`, // Email di placeholder
           password: randomPassword,
           twitterId: profile.id,
           twitterUsername: profile.username,
@@ -257,8 +285,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           tokenExpiry: new Date(Date.now() + expiresIn * 1000),
           twitterConnected: true
         });
+        console.log("Nuovo utente creato con ID:", user.id);
       } else {
-        // Update existing user's Twitter credentials 
+        console.log("Utente esistente trovato con ID Twitter:", profile.id);
+        // Aggiorna credenziali Twitter dell'utente esistente
         const tokenExpiry = new Date();
         tokenExpiry.setSeconds(tokenExpiry.getSeconds() + expiresIn);
         
@@ -268,30 +298,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           tokenExpiry,
           twitterConnected: true
         });
+        console.log("Credenziali Twitter aggiornate per utente:", user.id);
       }
       
-      // Set user session
+      // Imposta sessione utente
       req.session.userId = user.id;
       
-      console.log("User session set, userId:", user.id);
+      console.log("Sessione utente impostata, userId:", user.id);
       
-      // Assicurati che la sessione sia salvata prima del redirect
+      // Salva la sessione e verifica che sia stata salvata correttamente
       req.session.save((err) => {
         if (err) {
-          console.error("Error saving session:", err);
+          console.error("Errore nel salvare la sessione:", err);
           return res.redirect("/login?error=session_error");
         }
         
-        console.log("Session saved successfully, redirecting to dashboard");
-        // Redirect to dashboard
-        res.redirect("/dashboard");
+        console.log("Sessione salvata con successo, redirect a dashboard");
+        // Redirect a dashboard
+        return res.redirect("/dashboard");
       });
     } catch (error: any) {
-      console.error("Twitter callback error:", error);
-      if (error.stack) {
-        console.error(error.stack);
+      console.error("Errore nel callback Twitter:", error);
+      if (error.message) {
+        console.error("Messaggio errore:", error.message);
       }
-      res.redirect("/login?error=twitter_auth_failed");
+      if (error.stack) {
+        console.error("Stack trace:", error.stack);
+      }
+      return res.redirect("/login?error=twitter_auth_failed&message=" + encodeURIComponent(error.message || "Errore sconosciuto"));
     }
   });
 
