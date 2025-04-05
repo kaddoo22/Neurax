@@ -78,7 +78,9 @@ export class XService {
     (global as any).codeVerifiers = (global as any).codeVerifiers || {};
     (global as any).codeVerifiers[state] = codeVerifier;
     
-    console.log(`Code verifier for state ${state}: ${codeVerifier}`);
+    console.log(`[OAUTH DEBUG] Code verifier for state ${state}: ${codeVerifier}`);
+    console.log(`[OAUTH DEBUG] Code challenge: ${codeChallenge}`);
+    console.log(`[OAUTH DEBUG] Callback URL being used: ${this.callbackUrl}`);
     
     // Nuovi scope API X 2025 per accesso ampliato
     const scopes = [
@@ -100,7 +102,10 @@ export class XService {
     authUrl.searchParams.append('code_challenge', codeChallenge);
     authUrl.searchParams.append('code_challenge_method', 'S256');
     
-    return authUrl.toString();
+    const finalUrl = authUrl.toString();
+    console.log(`[OAUTH DEBUG] Generated authorization URL: ${finalUrl}`);
+    
+    return finalUrl;
   }
 
   // Scambia codice OAuth per token di accesso con gestione avanzata degli errori
@@ -124,12 +129,16 @@ export class XService {
     
     if (state && (global as any).codeVerifiers && (global as any).codeVerifiers[state]) {
       codeVerifier = (global as any).codeVerifiers[state];
-      console.log(`Using code verifier for state ${state}: ${codeVerifier}`);
+      console.log(`[OAUTH DEBUG] Using code verifier for state ${state}: ${codeVerifier}`);
       // Rimuovo dalla mappa il verifier già utilizzato
       delete (global as any).codeVerifiers[state];
     } else {
-      console.log(`Code verifier not found for state: ${state || 'undefined'}, using fallback`);
+      console.log(`[OAUTH DEBUG] Code verifier not found for state: ${state || 'undefined'}, using fallback`);
+      console.log(`[OAUTH DEBUG] Available states in verifier map:`, Object.keys((global as any).codeVerifiers || {}));
     }
+    
+    console.log(`[OAUTH DEBUG] Token exchange - Code: ${code?.substring(0, 5)}..., State: ${state}`);
+    console.log(`[OAUTH DEBUG] Using callback URL for token request: ${this.callbackUrl}`);
     
     const params = new URLSearchParams();
     params.append('code', code);
@@ -140,6 +149,8 @@ export class XService {
     
     // Autenticazione avanzata con Basic Auth + client credentials
     const basicAuth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+    
+    console.log(`[OAUTH DEBUG] Token request payload:`, params.toString());
 
     try {
       const response = await this.fetchWithRetry(tokenUrl, {

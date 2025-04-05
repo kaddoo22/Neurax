@@ -37,6 +37,16 @@ export function useTwitter() {
     try {
       const response = await apiRequest("GET", "/api/twitter/auth");
       const data = await response.json();
+      
+      // Debug delle informazioni sull'URL di autenticazione
+      console.log("[DEBUG] Twitter auth URL generato dal server:", data.url);
+      
+      // Verifica se l'URL è corretto (ha S256 come code_challenge_method)
+      if (data.url.includes('code_challenge_method=plain') || data.url.includes('localhost')) {
+        console.error("[ERRORE] URL di autenticazione Twitter non valido. Contattare il supporto.");
+        throw new Error("URL di autenticazione non valido. Usa l'URL generato dal server.");
+      }
+      
       return data.url;
     } catch (error) {
       console.error("Error initiating Twitter auth:", error);

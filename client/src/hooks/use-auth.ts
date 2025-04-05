@@ -46,6 +46,19 @@ export function useAuth() {
       const response = await apiRequest("GET", "/api/twitter/auth/login");
       const data = await response.json();
       
+      // Verifica l'URL generato per assicurarsi che sia corretto
+      console.log("[DEBUG] Twitter login URL generato:", data.url);
+      
+      if (data.url.includes('localhost') || data.url.includes('code_challenge_method=plain')) {
+        console.error("[ERRORE] URL di autenticazione Twitter non valido!");
+        toast({
+          title: "Errore configurazione",
+          description: "L'URL di callback Twitter non è configurato correttamente. Contatta il supporto.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Redirect to Twitter auth URL
       window.location.href = data.url;
     } catch (error) {
