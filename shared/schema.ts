@@ -1,5 +1,6 @@
 import { pgTable, text, serial, integer, boolean, json, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { relations } from "drizzle-orm";
 import { z } from "zod";
 
 // User table
@@ -8,12 +9,6 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
-  twitterConnected: boolean("twitter_connected").default(false),
-  twitterUsername: text("twitter_username"),
-  twitterId: text("twitter_id"),
-  accessToken: text("access_token"),
-  refreshToken: text("refresh_token"),
-  tokenExpiry: timestamp("token_expiry"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -21,18 +16,40 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   email: true,
-  twitterId: true,
-  twitterUsername: true, 
+});
+
+// Twitter accounts table (for multi-account support)
+export const twitterAccounts = pgTable("twitter_accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  twitterId: text("twitter_id").notNull(),
+  twitterUsername: text("twitter_username").notNull(),
+  accountName: text("account_name").notNull(), // Friendly name for the account
+  profileImageUrl: text("profile_image_url"),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tokenExpiry: timestamp("token_expiry"),
+  isDefault: boolean("is_default").default(false), // Is this the default account
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTwitterAccountSchema = createInsertSchema(twitterAccounts).pick({
+  userId: true,
+  twitterId: true, 
+  twitterUsername: true,
+  accountName: true,
+  profileImageUrl: true,
   accessToken: true,
   refreshToken: true,
   tokenExpiry: true,
-  twitterConnected: true,
+  isDefault: true,
 });
 
 // Twitter posts table
 export const posts = pgTable("posts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
+  twitterAccountId: integer("twitter_account_id").references(() => twitterAccounts.id), // Account specifico collegato al post
   content: text("content").notNull(),
   imageUrl: text("image_url"),
   twitterId: text("twitter_id"),
@@ -45,6 +62,7 @@ export const posts = pgTable("posts", {
 
 export const insertPostSchema = createInsertSchema(posts).pick({
   userId: true,
+  twitterAccountId: true,
   content: true,
   imageUrl: true,
   scheduledFor: true,
@@ -112,9 +130,47 @@ export const insertContentIdeaSchema = createInsertSchema(contentIdeas).pick({
   type: true,
 });
 
+// Relationships
+import { relations } from "drizzle-orm";
+
+// Define relationships between tables
+export const usersRelations = relations(users, ({ many }) => ({
+  twitterAccounts: many(twitterAccounts),
+  posts: many(posts),
+  tradingCalls: many(tradingCalls),
+  metrics: many(metrics),
+  contentIdeas: many(contentIdeas),
+}));
+
+export const twitterAccountsRelations = relations(twitterAccounts, ({ one, many }) => ({
+  user: one(users, {
+    fields: [twitterAccounts.userId],
+    references: [users.id],
+  }),
+  posts: many(posts),
+}));
+
+export const postsRelations = relations(posts, ({ one, many }) => ({
+  user: one(users, {
+    fields: [posts.userId],
+    references: [users.id],
+  }),
+  twitterAccount: one(twitterAccounts, {
+    fields: [posts.twitterAccountId],
+    references: [twitterAccounts.id],
+  }),
+  tradingCall: one(tradingCalls, {
+    fields: [posts.id],
+    references: [tradingCalls.postId],
+  }),
+}));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type TwitterAccount = typeof twitterAccounts.$inferSelect;
+export type InsertTwitterAccount = z.infer<typeof insertTwitterAccountSchema>;
 
 export type Post = typeof posts.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;
