@@ -130,9 +130,6 @@ export const insertContentIdeaSchema = createInsertSchema(contentIdeas).pick({
   type: true,
 });
 
-// Relationships
-import { relations } from "drizzle-orm";
-
 // Define relationships between tables
 export const usersRelations = relations(users, ({ many }) => ({
   twitterAccounts: many(twitterAccounts),

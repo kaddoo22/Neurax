@@ -16,8 +16,8 @@ export class XService {
   private callbackUrl: string;
   
   // Endpoint API
-  private baseApiUrl: string = 'https://api.x.com/v3'; 
-  private mediaApiUrl: string = 'https://upload.x.com/1.1';
+  private baseApiUrl: string = 'https://api.twitter.com/2'; 
+  private mediaApiUrl: string = 'https://upload.twitter.com/1.1';
   private oauth1BaseUrl: string = 'https://api.twitter.com/1.1';
   
   // Gestione ottimizzata delle connessioni

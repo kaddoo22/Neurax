@@ -81,11 +81,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store user ID in session
       req.session.userId = user.id;
       
+      // Verifica se l'utente ha account Twitter collegati
+      const twitterAccounts = await storage.getTwitterAccountsByUserId(user.id);
+      const hasTwitterAccounts = twitterAccounts.length > 0;
+      
       res.status(201).json({ 
         id: user.id, 
         username: user.username,
         email: user.email,
-        twitterConnected: user.twitterConnected
+        twitterConnected: hasTwitterAccounts
       });
     } catch (error) {
       if (error instanceof ZodError) {
@@ -116,11 +120,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store user ID in session
       req.session.userId = user.id;
       
+      // Verifica se l'utente ha account Twitter collegati
+      const twitterAccounts = await storage.getTwitterAccountsByUserId(user.id);
+      const hasTwitterAccounts = twitterAccounts.length > 0;
+      
       res.status(200).json({ 
         id: user.id, 
         username: user.username,
         email: user.email,
-        twitterConnected: user.twitterConnected 
+        twitterConnected: hasTwitterAccounts
       });
     } catch (error) {
       res.status(500).json({ message: "Server error" });
@@ -147,12 +155,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
+      // Verifica se l'utente ha account Twitter collegati
+      const twitterAccounts = await storage.getTwitterAccountsByUserId(user.id);
+      const hasTwitterAccounts = twitterAccounts.length > 0;
+      
+      // Ottieni l'account predefinito se esiste
+      const defaultAccount = await storage.getDefaultTwitterAccount(user.id);
+      
       res.status(200).json({
         id: user.id,
         username: user.username,
         email: user.email,
-        twitterConnected: user.twitterConnected,
-        twitterUsername: user.twitterUsername
+        twitterConnected: hasTwitterAccounts,
+        twitterUsername: defaultAccount?.twitterUsername || null,
+        twitterAccounts: twitterAccounts
       });
     } catch (error) {
       res.status(500).json({ message: "Server error" });
@@ -366,15 +382,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const tokenExpiry = new Date();
         tokenExpiry.setSeconds(tokenExpiry.getSeconds() + expiresIn);
         
-        // Aggiorna utente con credenziali Twitter
-        await storage.updateUserTwitterCredentials(userId, {
-          twitterId: profile.id,
-          twitterUsername: profile.username,
-          accessToken,
-          refreshToken,
-          tokenExpiry,
-          twitterConnected: true
-        });
+        // Cerca se l'account Twitter esiste già per questo utente
+        const existingAccount = await storage.getTwitterAccountByTwitterId(profile.id);
+        
+        if (existingAccount) {
+          // Aggiorna l'account esistente
+          await storage.updateTwitterAccount(existingAccount.id, {
+            accessToken,
+            refreshToken,
+            tokenExpiry
+          });
+        } else {
+          // Crea un nuovo account Twitter per l'utente
+          await storage.createTwitterAccount({
+            userId,
+            twitterId: profile.id,
+            twitterUsername: profile.username,
+            accountName: profile.name || profile.username, // Nome visualizzato
+            accessToken,
+            refreshToken,
+            tokenExpiry,
+            isDefault: true // Il primo account diventa quello predefinito
+          });
+        }
         
         console.log("Utente esistente aggiornato con credenziali Twitter, userId:", userId);
         
@@ -399,32 +429,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!user) {
         console.log("Nessun utente esistente con questo ID Twitter, creazione nuovo utente");
-        // Crea un nuovo utente con credenziali Twitter
+        // Crea un nuovo utente con password casuale
         const randomPassword = crypto.randomBytes(16).toString('hex');
         user = await storage.createUser({
           username: profile.username,
           email: `${profile.username}@twitter.com`, // Email di placeholder
-          password: randomPassword,
+          password: randomPassword
+        });
+        
+        // Crea un nuovo account Twitter associato all'utente
+        await storage.createTwitterAccount({
+          userId: user.id,
           twitterId: profile.id,
           twitterUsername: profile.username,
+          accountName: profile.name || profile.username,
           accessToken,
           refreshToken,
           tokenExpiry: new Date(Date.now() + expiresIn * 1000),
-          twitterConnected: true
+          isDefault: true
         });
+        
         console.log("Nuovo utente creato con ID:", user.id);
       } else {
         console.log("Utente esistente trovato con ID Twitter:", profile.id);
-        // Aggiorna credenziali Twitter dell'utente esistente
-        const tokenExpiry = new Date();
-        tokenExpiry.setSeconds(tokenExpiry.getSeconds() + expiresIn);
+        // Cerca account Twitter associato per aggiornarlo
+        const twitterAccount = await storage.getTwitterAccountByTwitterId(profile.id);
         
-        await storage.updateUserTwitterCredentials(user.id, {
-          accessToken,
-          refreshToken,
-          tokenExpiry,
-          twitterConnected: true
-        });
+        if (twitterAccount) {
+          // Aggiorna token di accesso dell'account Twitter
+          const tokenExpiry = new Date();
+          tokenExpiry.setSeconds(tokenExpiry.getSeconds() + expiresIn);
+          
+          await storage.updateTwitterAccount(twitterAccount.id, {
+            accessToken,
+            refreshToken,
+            tokenExpiry
+          });
+        } else {
+          // Crea un nuovo account Twitter per l'utente esistente
+          await storage.createTwitterAccount({
+            userId: user.id,
+            twitterId: profile.id,
+            twitterUsername: profile.username,
+            accountName: profile.name || profile.username,
+            accessToken,
+            refreshToken,
+            tokenExpiry: new Date(Date.now() + expiresIn * 1000),
+            isDefault: true
+          });
+        }
+        
         console.log("Credenziali Twitter aggiornate per utente:", user.id);
       }
       
@@ -453,6 +507,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Stack trace:", error.stack);
       }
       return res.redirect("/login?error=twitter_auth_failed&message=" + encodeURIComponent(error.message || "Errore sconosciuto"));
+    }
+  });
+  
+  // TWITTER ACCOUNTS ROUTES
+  
+  // Ottieni account Twitter dell'utente
+  app.get("/api/twitter/accounts", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const accounts = await storage.getTwitterAccountsByUserId(userId);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching Twitter accounts:", error);
+      res.status(500).json({ message: "Error fetching Twitter accounts" });
+    }
+  });
+  
+  // Imposta account Twitter predefinito
+  app.post("/api/twitter/accounts/default/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const accountId = parseInt(req.params.id);
+      
+      const success = await storage.setDefaultTwitterAccount(userId, accountId);
+      
+      if (!success) {
+        return res.status(400).json({ message: "Invalid account ID" });
+      }
+      
+      res.json({ message: "Default account updated" });
+    } catch (error) {
+      console.error("Error setting default Twitter account:", error);
+      res.status(500).json({ message: "Error setting default Twitter account" });
+    }
+  });
+  
+  // Elimina account Twitter
+  app.delete("/api/twitter/accounts/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId as number;
+      const accountId = parseInt(req.params.id);
+      
+      // Verifica che l'account appartenga all'utente
+      const accounts = await storage.getTwitterAccountsByUserId(userId);
+      const account = accounts.find(a => a.id === accountId);
+      
+      if (!account) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      
+      const success = await storage.deleteTwitterAccount(accountId);
+      
+      if (!success) {
+        return res.status(500).json({ message: "Error deleting account" });
+      }
+      
+      res.json({ message: "Account deleted" });
+    } catch (error) {
+      console.error("Error deleting Twitter account:", error);
+      res.status(500).json({ message: "Error deleting Twitter account" });
     }
   });
 
@@ -493,15 +607,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If post is scheduled for now or past, publish it
       if (post.scheduledFor && new Date(post.scheduledFor) <= new Date()) {
-        // Get user
-        const user = await storage.getUser(userId);
-        if (!user || !user.accessToken) {
+        // Se è specificato un account Twitter per il post, usalo, altrimenti usa l'account predefinito
+        let twitterAccount = null;
+        
+        if (post.twitterAccountId) {
+          twitterAccount = await storage.getTwitterAccount(post.twitterAccountId);
+        } else {
+          twitterAccount = await storage.getDefaultTwitterAccount(userId);
+        }
+        
+        if (!twitterAccount || !twitterAccount.accessToken) {
           return res.status(400).json({ message: "Twitter not connected" });
         }
         
         // Post to Twitter
         const tweetResult = await twitterService.postTweet(
-          user.accessToken,
+          twitterAccount.accessToken,
           post.content,
           post.imageUrl || undefined
         );
@@ -775,13 +896,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update metrics (only used internally)
   const updateUserMetrics = async (userId: number) => {
     try {
-      const user = await storage.getUser(userId);
-      if (!user || !user.twitterConnected || !user.accessToken || !user.twitterId) {
+      // Ottieni l'account Twitter predefinito dell'utente
+      const twitterAccount = await storage.getDefaultTwitterAccount(userId);
+      if (!twitterAccount || !twitterAccount.accessToken) {
         return;
       }
       
       // Get Twitter metrics
-      const twitterMetrics = await twitterService.getUserMetrics(user.accessToken, user.twitterId);
+      const twitterMetrics = await twitterService.getUserMetrics(
+        twitterAccount.accessToken, 
+        twitterAccount.twitterId
+      );
       
       // Save metrics
       const metrics = await storage.saveMetrics({

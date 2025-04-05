@@ -3,16 +3,27 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 // Definiamo i tipi basati sullo schema che altrimenti avremmo importato da ../shared/schema
+interface TwitterAccount {
+  id: number;
+  userId: number;
+  twitterId: string;
+  twitterUsername: string;
+  accountName: string;
+  profileImageUrl?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiry?: Date;
+  isDefault: boolean;
+  createdAt?: Date;
+}
+
 interface User {
   id: number;
   username: string;
   email: string;
   twitterConnected?: boolean;
   twitterUsername?: string;
-  twitterId?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  tokenExpiry?: Date;
+  twitterAccounts?: TwitterAccount[];
   createdAt?: Date;
 }
 
@@ -59,8 +70,15 @@ export function useTwitter() {
     queryKey: ["/api/auth/user"],
   });
 
-  // Verifichiamo che l'utente abbia le credenziali Twitter (accessToken e twitterId)
-  const isTwitterConnected = !!(user?.accessToken && user?.twitterId);
+  // Verifichiamo che l'utente abbia almeno un account Twitter collegato
+  const isTwitterConnected = !!user?.twitterConnected;
+  
+  // Ottieni gli account Twitter dell'utente
+  const { data: twitterAccounts, isLoading: isLoadingTwitterAccounts } = useQuery<TwitterAccount[]>({
+    queryKey: ["/api/twitter/accounts"],
+    // Esegui la query solo se l'utente è loggato e ha Twitter connesso
+    enabled: !!user?.id && isTwitterConnected
+  });
 
   // Create a new post
   const createPostMutation = useMutation({
@@ -69,6 +87,7 @@ export function useTwitter() {
       imageUrl?: string;
       scheduledFor?: Date;
       aiGenerated?: boolean;
+      twitterAccountId?: number; // ID dell'account Twitter da utilizzare
     }) => {
       const response = await apiRequest("POST", "/api/posts", postData);
       return response.json();
@@ -124,7 +143,7 @@ export function useTwitter() {
   });
 
   // Invio di un tweet di test "Ciao Mondo"
-  const sendTestTweet = async () => {
+  const sendTestTweet = async (accountId?: number) => {
     if (!isTwitterConnected) {
       toast({
         title: "Twitter non connesso",
@@ -134,10 +153,23 @@ export function useTwitter() {
       return;
     }
     
+    // Verifica se è stato specificato un account o usa il default
+    const defaultTwitterAccount = twitterAccounts?.find(account => account.isDefault);
+    if (!defaultTwitterAccount && !accountId) {
+      toast({
+        title: "Nessun account Twitter predefinito",
+        description: "Imposta un account Twitter predefinito o specifica un ID account",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       const testPostData = {
         content: "Ciao Mondo! Test da NeuraX - Social Media Manager AI 🤖 #NeuraxAI",
-        aiGenerated: false
+        aiGenerated: false,
+        // Usa l'accountId specificato o l'ID dell'account predefinito
+        twitterAccountId: accountId || defaultTwitterAccount?.id
       };
       
       // Usiamo direttamente la mutation per creare il post
@@ -160,6 +192,52 @@ export function useTwitter() {
     }
   };
 
+  // Imposta un account Twitter come default
+  const setDefaultAccountMutation = useMutation({
+    mutationFn: async (accountId: number) => {
+      const response = await apiRequest("POST", `/api/twitter/accounts/default/${accountId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/twitter/accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Account impostato come default",
+        description: "L'account Twitter selezionato è ora il tuo account predefinito"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Errore",
+        description: `Impossibile impostare l'account come default: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Elimina un account Twitter
+  const deleteAccountMutation = useMutation({
+    mutationFn: async (accountId: number) => {
+      const response = await apiRequest("DELETE", `/api/twitter/accounts/${accountId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/twitter/accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Account eliminato",
+        description: "L'account Twitter è stato rimosso correttamente"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Errore",
+        description: `Impossibile eliminare l'account: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  });
+
   return {
     isTwitterConnected,
     initiateTwitterAuth,
@@ -171,6 +249,14 @@ export function useTwitter() {
     scheduledPosts: scheduledPosts || [],
     isLoadingPosts,
     isLoadingScheduledPosts,
-    sendTestTweet // Aggiungiamo la funzione di test
+    sendTestTweet, // Funzione di test
+    twitterAccounts: twitterAccounts || [],
+    isLoadingTwitterAccounts,
+    setDefaultAccount: setDefaultAccountMutation.mutate,
+    isSettingDefaultAccount: setDefaultAccountMutation.isPending,
+    deleteAccount: deleteAccountMutation.mutate,
+    isDeletingAccount: deleteAccountMutation.isPending,
+    // Ottieni l'account predefinito se presente
+    defaultAccount: twitterAccounts?.find(account => account.isDefault)
   };
 }

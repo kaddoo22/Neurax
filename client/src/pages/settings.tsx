@@ -44,7 +44,16 @@ const aiSettingsSchema = z.object({
 
 const Settings = () => {
   const { user } = useAuth();
-  const { isTwitterConnected, initiateTwitterAuth, sendTestTweet } = useTwitter();
+  const { 
+    isTwitterConnected, 
+    initiateTwitterAuth, 
+    sendTestTweet, 
+    twitterAccounts, 
+    isLoadingTwitterAccounts, 
+    setDefaultAccount, 
+    deleteAccount,
+    defaultAccount
+  } = useTwitter();
   const { toast } = useToast();
   
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -301,6 +310,11 @@ const Settings = () => {
               onConnect={handleConnectTwitter}
               username={user?.twitterUsername || ""}
               onSendTestTweet={sendTestTweet}
+              twitterAccounts={twitterAccounts}
+              isLoadingAccounts={isLoadingTwitterAccounts}
+              onSetDefaultAccount={setDefaultAccount}
+              onDeleteAccount={deleteAccount}
+              defaultAccount={defaultAccount}
             />
             
             <DashboardCard title="API Keys" titleColor="cyberBlue">

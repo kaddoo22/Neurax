@@ -1,5 +1,6 @@
 import { 
   users, type User, type InsertUser,
+  twitterAccounts, type TwitterAccount, type InsertTwitterAccount,
   posts, type Post, type InsertPost,
   tradingCalls, type TradingCall, type InsertTradingCall,
   metrics, type Metrics, type InsertMetrics,
@@ -11,14 +12,22 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  getUserByTwitterId(twitterId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUserTwitterCredentials(id: number, twitterData: Partial<User>): Promise<User | undefined>;
+  
+  // Twitter account methods
+  getTwitterAccount(id: number): Promise<TwitterAccount | undefined>;
+  getTwitterAccountsByUserId(userId: number): Promise<TwitterAccount[]>;
+  getTwitterAccountByTwitterId(twitterId: string): Promise<TwitterAccount | undefined>;
+  createTwitterAccount(account: InsertTwitterAccount): Promise<TwitterAccount>;
+  updateTwitterAccount(id: number, data: Partial<TwitterAccount>): Promise<TwitterAccount | undefined>;
+  deleteTwitterAccount(id: number): Promise<boolean>;
+  setDefaultTwitterAccount(userId: number, accountId: number): Promise<boolean>;
+  getDefaultTwitterAccount(userId: number): Promise<TwitterAccount | undefined>;
   
   // Posts methods
   createPost(post: InsertPost): Promise<Post>;
-  getPostsByUserId(userId: number): Promise<Post[]>;
-  getScheduledPosts(userId: number): Promise<Post[]>;
+  getPostsByUserId(userId: number, twitterAccountId?: number): Promise<Post[]>;
+  getScheduledPosts(userId: number, twitterAccountId?: number): Promise<Post[]>;
   updatePost(id: number, data: Partial<Post>): Promise<Post | undefined>;
   deletePost(id: number): Promise<boolean>;
   
@@ -40,12 +49,14 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
+  private twitterAccounts: Map<number, TwitterAccount>;
   private posts: Map<number, Post>;
   private tradingCalls: Map<number, TradingCall>;
   private metricsData: Map<number, Metrics>;
   private contentIdeasData: Map<number, ContentIdea>;
   
   private userCurrentId: number;
+  private twitterAccountCurrentId: number;
   private postCurrentId: number;
   private tradingCallCurrentId: number;
   private metricsCurrentId: number;
@@ -53,12 +64,14 @@ export class MemStorage implements IStorage {
 
   constructor() {
     this.users = new Map();
+    this.twitterAccounts = new Map();
     this.posts = new Map();
     this.tradingCalls = new Map();
     this.metricsData = new Map();
     this.contentIdeasData = new Map();
     
     this.userCurrentId = 1;
+    this.twitterAccountCurrentId = 1;
     this.postCurrentId = 1;
     this.tradingCallCurrentId = 1;
     this.metricsCurrentId = 1;
@@ -82,10 +95,14 @@ export class MemStorage implements IStorage {
     );
   }
   
+  // Helper method per trovare un utente tramite ID Twitter
   async getUserByTwitterId(twitterId: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.twitterId === twitterId,
-    );
+    // Trova un account Twitter con questo ID
+    const twitterAccount = await this.getTwitterAccountByTwitterId(twitterId);
+    if (!twitterAccount) return undefined;
+    
+    // Trova l'utente associato
+    return this.getUser(twitterAccount.userId);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -94,30 +111,103 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       id, 
-      twitterConnected: insertUser.twitterConnected ?? false,
-      twitterUsername: insertUser.twitterUsername ?? null,
-      twitterId: insertUser.twitterId ?? null,
-      accessToken: insertUser.accessToken ?? null,
-      refreshToken: insertUser.refreshToken ?? null,
-      tokenExpiry: insertUser.tokenExpiry ?? null,
       createdAt: now
     };
     this.users.set(id, user);
     return user;
   }
   
-  async updateUserTwitterCredentials(id: number, twitterData: Partial<User>): Promise<User | undefined> {
-    const user = await this.getUser(id);
-    if (!user) return undefined;
+  // Twitter account methods
+  async getTwitterAccount(id: number): Promise<TwitterAccount | undefined> {
+    return this.twitterAccounts.get(id);
+  }
+  
+  async getTwitterAccountsByUserId(userId: number): Promise<TwitterAccount[]> {
+    return Array.from(this.twitterAccounts.values()).filter(
+      (account) => account.userId === userId
+    );
+  }
+  
+  async getTwitterAccountByTwitterId(twitterId: string): Promise<TwitterAccount | undefined> {
+    return Array.from(this.twitterAccounts.values()).find(
+      (account) => account.twitterId === twitterId
+    );
+  }
+  
+  async createTwitterAccount(insertAccount: InsertTwitterAccount): Promise<TwitterAccount> {
+    const id = this.twitterAccountCurrentId++;
+    const now = new Date();
     
-    const updatedUser = { 
-      ...user, 
-      ...twitterData, 
-      twitterConnected: true
+    // Se è il primo account di questo utente, impostiamo isDefault a true
+    let isDefault = insertAccount.isDefault;
+    if (!isDefault) {
+      const userAccounts = await this.getTwitterAccountsByUserId(insertAccount.userId);
+      if (userAccounts.length === 0) {
+        isDefault = true;
+      }
+    }
+    
+    const account: TwitterAccount = {
+      ...insertAccount,
+      id,
+      isDefault: isDefault ?? false,
+      profileImageUrl: insertAccount.profileImageUrl || null,
+      accessToken: insertAccount.accessToken || null,
+      refreshToken: insertAccount.refreshToken || null,
+      tokenExpiry: insertAccount.tokenExpiry || null,
+      createdAt: now
     };
     
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    this.twitterAccounts.set(id, account);
+    return account;
+  }
+  
+  async updateTwitterAccount(id: number, data: Partial<TwitterAccount>): Promise<TwitterAccount | undefined> {
+    const account = this.twitterAccounts.get(id);
+    if (!account) return undefined;
+    
+    const updatedAccount = { ...account, ...data };
+    this.twitterAccounts.set(id, updatedAccount);
+    return updatedAccount;
+  }
+  
+  async deleteTwitterAccount(id: number): Promise<boolean> {
+    const account = this.twitterAccounts.get(id);
+    if (!account) return false;
+    
+    // Se eliminiamo l'account predefinito e ci sono altri account per questo utente, 
+    // impostiamo un altro account come predefinito
+    if (account.isDefault) {
+      const userAccounts = await this.getTwitterAccountsByUserId(account.userId);
+      const otherAccount = userAccounts.find(a => a.id !== id);
+      if (otherAccount) {
+        await this.updateTwitterAccount(otherAccount.id, { isDefault: true });
+      }
+    }
+    
+    return this.twitterAccounts.delete(id);
+  }
+  
+  async setDefaultTwitterAccount(userId: number, accountId: number): Promise<boolean> {
+    // Rimuovi l'impostazione predefinita da tutti gli account dell'utente
+    const userAccounts = await this.getTwitterAccountsByUserId(userId);
+    for (const account of userAccounts) {
+      if (account.isDefault) {
+        await this.updateTwitterAccount(account.id, { isDefault: false });
+      }
+    }
+    
+    // Imposta l'account selezionato come predefinito
+    const account = this.twitterAccounts.get(accountId);
+    if (!account || account.userId !== userId) return false;
+    
+    await this.updateTwitterAccount(accountId, { isDefault: true });
+    return true;
+  }
+  
+  async getDefaultTwitterAccount(userId: number): Promise<TwitterAccount | undefined> {
+    const userAccounts = await this.getTwitterAccountsByUserId(userId);
+    return userAccounts.find(account => account.isDefault);
   }
   
   // Posts methods
@@ -129,6 +219,7 @@ export class MemStorage implements IStorage {
       id,
       published: false,
       twitterId: null,
+      twitterAccountId: insertPost.twitterAccountId || null,
       imageUrl: insertPost.imageUrl || null,
       scheduledFor: insertPost.scheduledFor || null,
       aiGenerated: insertPost.aiGenerated || null,
@@ -139,15 +230,19 @@ export class MemStorage implements IStorage {
     return post;
   }
   
-  async getPostsByUserId(userId: number): Promise<Post[]> {
+  async getPostsByUserId(userId: number, twitterAccountId?: number): Promise<Post[]> {
     return Array.from(this.posts.values()).filter(
-      (post) => post.userId === userId
+      (post) => post.userId === userId && 
+        (twitterAccountId === undefined || post.twitterAccountId === twitterAccountId)
     );
   }
   
-  async getScheduledPosts(userId: number): Promise<Post[]> {
+  async getScheduledPosts(userId: number, twitterAccountId?: number): Promise<Post[]> {
     return Array.from(this.posts.values()).filter(
-      (post) => post.userId === userId && post.scheduledFor && !post.published
+      (post) => post.userId === userId && 
+        post.scheduledFor && 
+        !post.published &&
+        (twitterAccountId === undefined || post.twitterAccountId === twitterAccountId)
     );
   }
   
