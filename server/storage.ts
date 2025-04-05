@@ -153,6 +153,7 @@ export class MemStorage implements IStorage {
       isDefault: isDefault ?? false,
       profileImageUrl: insertAccount.profileImageUrl || null,
       accessToken: insertAccount.accessToken || null,
+      accessTokenSecret: insertAccount.accessTokenSecret || null, // Aggiunto per OAuth 1.0a
       refreshToken: insertAccount.refreshToken || null,
       tokenExpiry: insertAccount.tokenExpiry || null,
       createdAt: now

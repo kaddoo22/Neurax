@@ -371,8 +371,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Aggiorna l'account esistente
           await storage.updateTwitterAccount(existingAccount.id, {
             accessToken,
-            refreshToken,
-            tokenExpiry
+            accessTokenSecret: refreshToken, // In OAuth 1.0a, refreshToken è in realtà accessTokenSecret
+            refreshToken: null, // Non usato in OAuth 1.0a
+            tokenExpiry: null // Non usato in OAuth 1.0a
           });
         } else {
           // Crea un nuovo account Twitter per l'utente
@@ -382,8 +383,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             twitterUsername: profile.username,
             accountName: profile.name || profile.username, // Nome visualizzato
             accessToken,
-            refreshToken,
-            tokenExpiry,
+            accessTokenSecret: refreshToken, // In OAuth 1.0a, refreshToken è accessTokenSecret
+            refreshToken: null, // Non usato in OAuth 1.0a
+            tokenExpiry: null, // Non usato in OAuth 1.0a
             isDefault: true // Il primo account diventa quello predefinito
           });
         }
@@ -426,8 +428,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           twitterUsername: profile.username,
           accountName: profile.name || profile.username,
           accessToken,
-          refreshToken,
-          tokenExpiry: new Date(Date.now() + expiresIn * 1000),
+          accessTokenSecret: refreshToken, // In OAuth 1.0a, refreshToken è accessTokenSecret
+          refreshToken: null, // Non usato in OAuth 1.0a
+          tokenExpiry: null, // Non usato in OAuth 1.0a
           isDefault: true
         });
         
@@ -444,8 +447,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           await storage.updateTwitterAccount(twitterAccount.id, {
             accessToken,
-            refreshToken,
-            tokenExpiry
+            accessTokenSecret: refreshToken, // In OAuth 1.0a, refreshToken è accessTokenSecret
+            refreshToken: null, // Non usato in OAuth 1.0a
+            tokenExpiry: null // Non usato in OAuth 1.0a
           });
         } else {
           // Crea un nuovo account Twitter per l'utente esistente
@@ -455,8 +459,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             twitterUsername: profile.username,
             accountName: profile.name || profile.username,
             accessToken,
-            refreshToken,
-            tokenExpiry: new Date(Date.now() + expiresIn * 1000),
+            accessTokenSecret: refreshToken, // In OAuth 1.0a, refreshToken è accessTokenSecret
+            refreshToken: null, // Non usato in OAuth 1.0a
+            tokenExpiry: null, // Non usato in OAuth 1.0a
             isDefault: true
           });
         }
@@ -605,7 +610,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Post to Twitter with OAuth 1.0a
         const tweetResult = await twitterService.postTweet(
           twitterAccount.accessToken,
-          twitterAccount.refreshToken || '',  // Token secret è obbligatorio per OAuth 1.0a
+          twitterAccount.accessTokenSecret || '',  // Token secret è obbligatorio per OAuth 1.0a
           post.content,
           post.imageUrl ? post.imageUrl : undefined
         );
@@ -888,7 +893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get Twitter metrics
       const twitterMetrics = await twitterService.getUserMetrics(
         twitterAccount.accessToken,
-        twitterAccount.refreshToken,
+        twitterAccount.accessTokenSecret || '', // Usiamo accessTokenSecret invece di refreshToken
         twitterAccount.twitterId
       );
       

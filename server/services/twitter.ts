@@ -64,20 +64,26 @@ export class XService {
     }
     
     try {
+      console.log("Avvio autenticazione Twitter con OAuth 1.0a...");
       console.log("Richiesta token con API key:", this.apiKey.substring(0, 6) + "...");
       console.log("Callback URL:", this.callbackUrl);
+      
+      // Verifica se il callback URL è correttamente codificato
+      const callbackEncoded = encodeURIComponent(this.callbackUrl);
+      console.log("Callback URL encoded:", callbackEncoded);
       
       // Utilizziamo la libreria ufficiale twitter-api-v2
       const client = this.getClient();
       
       // Usa la libreria per ottenere il link di autenticazione con callback
+      // Imposta specificamente linkMode su 'authorize' per utilizzare il flow completo di OAuth
       const authLink = await client.generateAuthLink(this.callbackUrl, { 
-        linkMode: 'authenticate' 
+        linkMode: 'authorize'
       });
       
       console.log("Auth link generato:", authLink.url);
       console.log("OAuth token:", authLink.oauth_token);
-      console.log("OAuth token secret:", authLink.oauth_token_secret);
+      console.log("OAuth token secret:", authLink.oauth_token_secret ? "[PRESENTE]" : "[MANCANTE]");
       
       return {
         oauthToken: authLink.oauth_token,

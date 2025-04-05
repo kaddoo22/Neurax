@@ -27,8 +27,9 @@ export const twitterAccounts = pgTable("twitter_accounts", {
   accountName: text("account_name").notNull(), // Friendly name for the account
   profileImageUrl: text("profile_image_url"),
   accessToken: text("access_token"),
-  refreshToken: text("refresh_token"),
-  tokenExpiry: timestamp("token_expiry"),
+  accessTokenSecret: text("access_token_secret"), // Per OAuth 1.0a
+  refreshToken: text("refresh_token"), // Mantenuto per compatibilità
+  tokenExpiry: timestamp("token_expiry"), // Non usato per OAuth 1.0a, ma mantenuto per compatibilità
   isDefault: boolean("is_default").default(false), // Is this the default account
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -40,6 +41,7 @@ export const insertTwitterAccountSchema = createInsertSchema(twitterAccounts).pi
   accountName: true,
   profileImageUrl: true,
   accessToken: true,
+  accessTokenSecret: true, // Aggiunto per OAuth 1.0a
   refreshToken: true,
   tokenExpiry: true,
   isDefault: true,
