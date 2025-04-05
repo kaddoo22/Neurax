@@ -24,6 +24,14 @@ export class XService {
     
     // URL di callback
     this.callbackUrl = process.env.TWITTER_CALLBACK_URL || 'http://localhost:5000/api/auth/twitter/callback';
+    
+    if (this.callbackUrl.includes("/login/api/")) {
+      this.callbackUrl = this.callbackUrl.replace("/login/api/", "/api/");
+      console.log('URL di callback corretto:', this.callbackUrl);
+    }
+    
+    console.log('API key length:', this.apiKey.length);
+    console.log('API secret length:', this.apiSecret.length);
     console.log('URL di callback usato:', this.callbackUrl);
 
     // Controllo credenziali
@@ -62,26 +70,63 @@ export class XService {
       throw new Error('Twitter API credentials not configured');
     }
     
+    // IMPORTANTE: Il oauth_callback va inserito nella firma OAuth, non nei parametri extra
     const requestData = {
       url: 'https://api.twitter.com/oauth/request_token',
       method: 'POST',
-      data: { oauth_callback: this.callbackUrl }
+      data: { 
+        oauth_callback: this.callbackUrl
+      }
     };
     
-    const headers = this.oauth1Client.toHeader(
-      this.oauth1Client.authorize(requestData)
-    );
-    
     try {
-      const response = await fetch(requestData.url, {
-        method: requestData.method,
-        headers: {
-          ...headers,
-          'Content-Type': 'application/x-www-form-urlencoded'
+      console.log("Richiesta token con API key:", this.apiKey.substring(0, 6) + "...");
+      console.log("Callback URL:", this.callbackUrl);
+      
+      // Invece di usare le fetch API, proviamo con una implementazione più diretta di OAuth
+      // con firme verificate da Twitter
+      const crypto = require('crypto');
+      const OAuth = require('oauth-1.0a');
+      
+      const oauth = new OAuth({
+        consumer: { key: this.apiKey, secret: this.apiSecret },
+        signature_method: 'HMAC-SHA1',
+        hash_function: (baseString: string, key: string) => {
+          return crypto.createHmac('sha1', key).update(baseString).digest('base64');
         }
       });
       
+      // La libreria oauth gestisce tutti i dettagli della richiesta
+      const request_data = {
+        url: 'https://api.twitter.com/oauth/request_token',
+        method: 'POST',
+        data: { oauth_callback: this.callbackUrl }
+      };
+      
+      const auth = oauth.authorize(request_data);
+      
+      // Mostriamo tutti i parametri OAuth che stiamo inviando
+      console.log("OAuth parameters:", auth);
+      
+      const headers = oauth.toHeader(auth);
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      
+      console.log("Final headers:", headers);
+      
+      // Facciamo un tentativo più pulito con la libreria node-fetch
+      const fetch = require('node-fetch');
+      const response = await fetch(request_data.url, {
+        method: request_data.method,
+        headers: headers,
+        body: new URLSearchParams({ oauth_callback: this.callbackUrl }).toString()
+      });
+      
+      console.log("Response status:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
+        const responseText = await response.text();
+        console.error("Error response:", responseText);
         throw new Error(`Twitter request token failed: ${response.status} ${response.statusText}`);
       }
       

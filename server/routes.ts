@@ -7,7 +7,7 @@ import { z } from "zod";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { insertUserSchema, insertPostSchema, insertTradingCallSchema } from "@shared/schema";
-import { twitterService } from "./services/twitter_oauth1";
+import { twitterService } from "./services/twitter";
 import { aiService } from "./services/ai";
 import { cryptoService } from "./services/crypto";
 import { websocketService } from "./services/websocket";
@@ -887,7 +887,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get Twitter metrics
       const twitterMetrics = await twitterService.getUserMetrics(
-        twitterAccount.accessToken, 
+        twitterAccount.accessToken,
+        twitterAccount.refreshToken,
         twitterAccount.twitterId
       );
       
