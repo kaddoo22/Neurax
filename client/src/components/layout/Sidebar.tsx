@@ -1,15 +1,13 @@
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
-import { CyberButton } from "@/components/ui/cyber-button";
 
 interface SidebarProps {
   open: boolean;
   setOpen: (open: boolean) => void;
-  onLogout: () => void;
   username: string;
 }
 
-const Sidebar = ({ open, setOpen, onLogout, username }: SidebarProps) => {
+const Sidebar = ({ open, setOpen, username }: SidebarProps) => {
   const [location] = useLocation();
 
   const navItems = [
@@ -98,17 +96,10 @@ const Sidebar = ({ open, setOpen, onLogout, username }: SidebarProps) => {
         <div className="absolute bottom-6 left-4 right-4">
           <a
             href="#"
-            className="text-xs text-center text-techWhite/60 hover:text-techWhite block mb-2"
+            className="text-xs text-center text-techWhite/60 hover:text-techWhite block"
           >
             <i className="fas fa-info-circle mr-1"></i> Help & Documentation
           </a>
-          <CyberButton
-            className="w-full"
-            onClick={onLogout}
-            iconLeft={<i className="fas fa-sign-out-alt"></i>}
-          >
-            DISCONNECT
-          </CyberButton>
         </div>
       </div>
     </>

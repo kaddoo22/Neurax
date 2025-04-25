@@ -19,141 +19,28 @@ interface RegisterCredentials {
 export function useAuth() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Get current user
-  const { data: user, error, isLoading: isLoadingUser, isError } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
-    retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes,
-    // Handle unauthorized error in queryClient
-    refetchOnWindowFocus: true, // Refresh on window focus
-    refetchOnReconnect: true,  // Refresh on reconnect
-    enabled: true, // Always enable but handle redirection separately
-  });
   
-  // Set loading state when user query settles
-  useEffect(() => {
-    if (!isLoadingUser) {
-      setIsLoading(false);
-    }
-  }, [isLoadingUser]);
-
-  // Twitter Auth
-  const loginWithTwitter = async () => {
-    try {
-      const response = await apiRequest("GET", "/api/twitter/auth/login");
-      const data = await response.json();
-      
-      // Verifica l'URL generato per assicurarsi che sia corretto
-      console.log("[DEBUG] Twitter login URL generato:", data.url);
-      
-      if (data.url.includes('localhost') || data.url.includes('code_challenge_method=plain')) {
-        console.error("[ERRORE] URL di autenticazione Twitter non valido!");
-        toast({
-          title: "Errore configurazione",
-          description: "L'URL di callback Twitter non è configurato correttamente. Contatta il supporto.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Redirect to Twitter auth URL
-      window.location.href = data.url;
-    } catch (error) {
-      console.error("Error initiating Twitter auth:", error);
-      toast({
-        title: "Twitter Login Failed",
-        description: "Could not initiate Twitter login. Please try again.",
-        variant: "destructive",
-      });
-    }
+  // Simulate a logged in user
+  const mockUser: User = {
+    id: 1,
+    username: "Admin",
+    email: "admin@neurax.ai",
+    twitterConnected: true,
+    twitterUsername: "NeuraXAI",
+    twitterId: "123456789"
   };
 
-  // We don't need the redirect logic here anymore since it's handled by the ProtectedRoute component
-  // and the login page itself. This avoids circular redirects when multiple redirects happen simultaneously.
-
-  // Login mutation
-  const loginMutation = useMutation({
-    mutationFn: async (credentials: LoginCredentials) => {
-      const response = await apiRequest("POST", "/api/auth/login", credentials);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["/api/auth/user"], data);
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${data.username}!`,
-      });
-      setLocation("/dashboard");
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Register mutation
-  const registerMutation = useMutation({
-    mutationFn: async (credentials: RegisterCredentials) => {
-      const response = await apiRequest("POST", "/api/auth/register", credentials);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["/api/auth/user"], data);
-      toast({
-        title: "Registration successful",
-        description: `Welcome, ${data.username}!`,
-      });
-      setLocation("/dashboard");
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Registration failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Logout mutation
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/auth/logout");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.clear();
-      toast({
-        title: "Logout successful",
-        description: "You have been logged out.",
-      });
-      setLocation("/login");
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Logout failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   return {
-    user,
-    isAuthenticated: !!user,
-    isLoading: isLoading || isLoadingUser,
-    error,
-    login: loginMutation.mutate,
-    isLoggingIn: loginMutation.isPending,
-    register: registerMutation.mutate,
-    isRegistering: registerMutation.isPending,
-    logout: logoutMutation.mutate,
-    isLoggingOut: logoutMutation.isPending,
-    loginWithTwitter
+    user: mockUser,
+    isAuthenticated: true,
+    isLoading: false,
+    error: null,
+    login: () => {},
+    isLoggingIn: false,
+    register: () => {},
+    isRegistering: false,
+    logout: () => setLocation("/dashboard"),
+    isLoggingOut: false,
+    loginWithTwitter: () => {}
   };
 }
